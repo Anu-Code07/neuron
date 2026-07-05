@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy, Terminal } from 'lucide-react';
 import { useViewMode } from '@/lib/view-mode';
-import { GlassCard, GlassCodeBlock, GlassSection } from '@/components/ui/glass-card';
+import { useUserApiKey } from '@/lib/hooks/use-user-api-key';
+import { ApiKeyPanel } from '@/components/ui/api-key-panel';
+import { GlassCard, GlassCodeBlock } from '@/components/ui/glass-card';
 
 const TOOLS = [
   'remember_fact', 'remember_decision', 'remember_pattern', 'remember_bug',
@@ -14,6 +16,7 @@ const TOOLS = [
 ];
 
 const API_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://neuron-azure.vercel.app';
+const PLACEHOLDER = 'nrn_generate_your_key_above';
 
 function buildInstallCmd(apiKey: string) {
   return `NEURON_API_KEY=${apiKey} \\
@@ -42,13 +45,17 @@ function buildMcpConfig(apiKey: string) {
 
 export function McpView() {
   const { setViewMode } = useViewMode();
+  const { revealedKey, meta } = useUserApiKey();
   const [copied, setCopied] = useState<'install' | 'config' | null>(null);
-  const [demoKey, setDemoKey] = useState('nrn_your_key_from_dashboard_settings');
 
-  const installCmd = useMemo(() => buildInstallCmd(demoKey), [demoKey]);
-  const mcpConfig = useMemo(() => buildMcpConfig(demoKey), [demoKey]);
+  const apiKeyForCmd = revealedKey ?? meta?.key_prefix ?? PLACEHOLDER;
+  const canCopyCommands = !!revealedKey;
+
+  const installCmd = useMemo(() => buildInstallCmd(apiKeyForCmd), [apiKeyForCmd]);
+  const mcpConfig = useMemo(() => buildMcpConfig(apiKeyForCmd), [apiKeyForCmd]);
 
   function copy(text: string, key: 'install' | 'config') {
+    if (!canCopyCommands) return;
     navigator.clipboard.writeText(text);
     setCopied(key);
     setTimeout(() => setCopied(null), 2000);
@@ -71,33 +78,28 @@ export function McpView() {
           </div>
           <div>
             <h2 className="text-2xl font-semibold text-white">MCP Setup</h2>
-            <p className="text-[13px] text-white/50">One API key — safe for external demo users</p>
+            <p className="text-[13px] text-white/50">One API key per account — safe for external demo users</p>
           </div>
         </div>
       </div>
 
-      <GlassSection
-        title="Generate your key"
-        description="Settings → Generate demo API key, then paste below to preview the install command."
-        className="mt-6"
-      >
-        <label className="block">
-          <span className="text-[12px] text-white/45">NEURON_API_KEY preview</span>
-          <input
-            value={demoKey}
-            onChange={(e) => setDemoKey(e.target.value)}
-            className="glass-inner mt-2 w-full rounded-xl px-4 py-2.5 text-sm text-white font-mono outline-none focus:ring-1 focus:ring-[#4BA0FA]/50"
-          />
-        </label>
-      </GlassSection>
+      <ApiKeyPanel className="mt-6" />
 
       <GlassCard glow padding="lg" delay={0.1} className="mt-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-white">Send to your tester</h3>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-white">Send to your tester</h3>
+            {!canCopyCommands && (
+              <p className="mt-1 text-[12px] text-white/40">
+                Generate or regenerate your key above to unlock copy-ready commands.
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => copy(installCmd, 'install')}
-            className="flex items-center gap-1.5 rounded-full bg-[#4BA0FA] px-4 py-1.5 text-[12px] font-medium text-white hover:bg-[#4BA0FA]/90"
+            disabled={!canCopyCommands}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#4BA0FA] px-4 py-1.5 text-[12px] font-medium text-white hover:bg-[#4BA0FA]/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {copied === 'install' ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
             {copied === 'install' ? 'Copied!' : 'Copy command'}
@@ -107,12 +109,13 @@ export function McpView() {
       </GlassCard>
 
       <GlassCard padding="lg" delay={0.15} className="mt-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h3 className="font-semibold text-white">Manual config</h3>
           <button
             type="button"
             onClick={() => copy(mcpConfig, 'config')}
-            className="glass-pill flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-white hover:bg-white/10"
+            disabled={!canCopyCommands}
+            className="glass-pill flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-[12px] text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {copied === 'config' ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
             {copied === 'config' ? 'Copied!' : 'Copy JSON'}

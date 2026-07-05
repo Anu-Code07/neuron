@@ -155,6 +155,12 @@ async function main() {
   }
   const createdBy = profiles[0].id;
 
+  const existingKeys = await rest(`api_keys?created_by=eq.${createdBy}&select=id`);
+  if (existingKeys?.length) {
+    await rest(`api_keys?created_by=eq.${createdBy}`, { method: 'DELETE' });
+    console.log('Replaced existing API key for user (one key per user).');
+  }
+
   if (projectId) {
     const projects = await rest(`projects?id=eq.${projectId}&select=id,name`);
     if (!projects?.length) {

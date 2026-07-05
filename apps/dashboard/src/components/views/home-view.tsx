@@ -15,7 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
 import { GlassCard, GlassSection } from '@/components/ui/glass-card';
-import { HeroFloatingStats } from '@/components/ui/sketch-stat-card';
+import { DashboardHero } from '@/components/ui/sketch-stat-card';
 
 interface HomeViewProps {
   onAddMemory?: () => void;
@@ -35,8 +35,6 @@ export function HomeView({ onAddMemory }: HomeViewProps) {
       tagline: 'Facts, decisions & patterns stored',
       value: memories.toLocaleString(),
       icon: Brain,
-      tilt: -6,
-      delay: 0.1,
       featured: memories > 0,
       iconBg: 'bg-[#FFD6A5]',
     },
@@ -45,8 +43,6 @@ export function HomeView({ onAddMemory }: HomeViewProps) {
       tagline: 'MCP clients connected',
       value: String(connections),
       icon: Plug,
-      tilt: 5,
-      delay: 0.2,
       iconBg: 'bg-[#CAFFBF]',
     },
     {
@@ -54,8 +50,6 @@ export function HomeView({ onAddMemory }: HomeViewProps) {
       tagline: 'Active on this project',
       value: String(members),
       icon: Users,
-      tilt: -4,
-      delay: 0.3,
       iconBg: 'bg-[#BDB2FF]',
     },
     {
@@ -63,8 +57,6 @@ export function HomeView({ onAddMemory }: HomeViewProps) {
       tagline: 'AI context assembled',
       value: String(data?.packets ?? 0),
       icon: Layers,
-      tilt: 7,
-      delay: 0.4,
       iconBg: 'bg-[#A2D2FF]',
     },
   ];
@@ -74,7 +66,7 @@ export function HomeView({ onAddMemory }: HomeViewProps) {
       <section className="relative -mx-2 overflow-hidden rounded-3xl md:-mx-4">
         <div className="page-hero-gradient absolute inset-0" />
         <div className="relative px-2 py-4 md:px-6 md:py-8">
-          <HeroFloatingStats
+          <DashboardHero
             stats={stats}
             loading={isLoading}
             onDocs={() => setViewMode('docs')}

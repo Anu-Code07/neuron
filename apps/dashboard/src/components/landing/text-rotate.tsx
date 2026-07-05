@@ -21,15 +21,15 @@ export function TextRotate({
   }, [words.length, interval]);
 
   return (
-    <span className={cn('relative inline-flex overflow-hidden align-bottom', className)}>
+    <span className={cn('relative inline-flex min-h-[1.15em] overflow-hidden align-bottom', className)}>
       <AnimatePresence mode="wait">
         <motion.span
           key={words[index]}
-          initial={{ y: 40, opacity: 0, filter: 'blur(8px)' }}
+          initial={{ y: '100%', opacity: 0, filter: 'blur(12px)' }}
           animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-          exit={{ y: -40, opacity: 0, filter: 'blur(8px)' }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className="text-gradient inline-block"
+          exit={{ y: '-100%', opacity: 0, filter: 'blur(12px)' }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="text-shimmer font-display inline-block pr-1 italic"
         >
           {words[index]}
         </motion.span>

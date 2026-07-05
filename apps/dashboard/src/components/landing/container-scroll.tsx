@@ -30,8 +30,15 @@ export function ContainerScroll({ titleComponent, children }: ContainerScrollPro
           style={{ rotateX, scale, translateY, transformPerspective: 1200 }}
           className="relative mt-10 w-full max-w-5xl"
         >
-          <div className="rounded-2xl border border-white/10 bg-[#0a0e14] p-2 shadow-[0_32px_80px_rgba(0,0,0,0.55)] md:rounded-3xl md:p-3">
-            <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#05080d] md:rounded-2xl">
+          <div className="absolute -inset-1 rounded-[1.75rem] bg-gradient-to-r from-[#4BA0FA]/30 via-[#36fdfd]/20 to-[#a78bfa]/30 blur-xl" />
+          <div className="relative rounded-2xl border border-white/15 bg-[#0a0e14]/90 p-2 shadow-[0_40px_100px_rgba(0,0,0,0.6)] md:rounded-3xl md:p-3">
+            <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2.5">
+              <span className="size-2.5 rounded-full bg-[#ff5f57]" />
+              <span className="size-2.5 rounded-full bg-[#febc2e]" />
+              <span className="size-2.5 rounded-full bg-[#28c840]" />
+              <span className="ml-2 font-mono text-[10px] text-white/30">neuron — memory graph</span>
+            </div>
+            <div className="overflow-hidden rounded-b-xl bg-[#05080d] md:rounded-b-2xl">
               {children}
             </div>
           </div>
@@ -49,10 +56,10 @@ export function MemoryGraphScrollSection() {
           <p className="text-[13px] font-medium uppercase tracking-[0.2em] text-[#4BA0FA]">
             Knowledge graph
           </p>
-          <h2 className="mt-3 text-3xl font-bold leading-tight tracking-tight text-white md:text-5xl md:leading-[1.1]">
+          <h2 className="font-display mt-3 text-3xl text-white md:text-5xl lg:text-6xl md:leading-[1.05]">
             Unleash the power of
             <br />
-            <span className="text-white/90">memory graphs</span>
+            <span className="text-shimmer italic">memory graphs</span>
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-[15px] text-white/45">
             Ordered facts on the left. Emergent connections on the right. Neuron turns chaos into context your AI can use.

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Brain, Key, Network, Sparkles, Terminal, Zap } from 'lucide-react';
 import { NeuronLogoFull } from '@/components/ui/logo';
 import { MemoryGraphScrollSection } from './container-scroll';
-import { FloatingHeroCards, LandingAurora, LogoMarquee } from './landing-graphics';
+import { FloatingHeroCards, HowItWorksSteps, LandingAurora, LogoMarquee, WorksWithStrip } from './landing-graphics';
 import { TextRotate } from './text-rotate';
 
 const FEATURES = [
@@ -91,24 +91,24 @@ export function LandingPage() {
               </span>
             </div>
 
-            <h1 className="mt-8 max-w-4xl text-[2.75rem] font-bold leading-[1.02] tracking-[-0.03em] md:text-7xl md:leading-[1.0] lg:text-[5.5rem]">
+            <h1 className="font-display mt-8 max-w-4xl text-[2.85rem] leading-[1.05] md:text-[5.5rem] md:leading-[1.02] lg:text-[6rem]">
               Make your AI
               <br />
               <TextRotate
                 words={['remember everything', 'know your stack', 'never forget', 'stay in context']}
-                className="min-h-[1.1em] text-[2.75rem] md:text-7xl lg:text-[5.5rem]"
+                className="text-[2.85rem] md:text-[5.5rem] lg:text-[6rem]"
               />
             </h1>
 
-            <p className="mx-auto mt-6 max-w-xl text-[16px] leading-relaxed text-white/45 md:text-lg">
-              Neuron is a context engine for Cursor, Claude, and any MCP client.
-              One API key. Persistent project memory. Award-grade developer experience.
+            <p className="mx-auto mt-6 max-w-xl text-[16px] leading-relaxed text-white/50 md:text-lg">
+              A context engine for Cursor, Claude, and any MCP client.
+              One API key. Memory that persists. Built for developers who care about craft.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/login"
-                className="group sketch-pill inline-flex items-center gap-2 bg-white px-7 py-3.5 text-[14px] font-bold text-black transition hover:-translate-y-1"
+                className="btn-glow group sketch-pill inline-flex items-center gap-2 bg-white px-7 py-3.5 text-[14px] font-bold text-black transition hover:-translate-y-1"
               >
                 Log in
                 <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
@@ -130,10 +130,16 @@ export function LandingPage() {
             className="mt-16 grid w-full max-w-3xl grid-cols-2 gap-3 md:grid-cols-4 md:gap-4"
           >
             {STATS.map((s, i) => (
-              <div key={s.label} className="glass rounded-2xl px-4 py-5 text-center">
-                <p className="text-2xl font-bold tabular-nums text-white md:text-3xl">{s.value}</p>
-                <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-white/40">{s.label}</p>
-              </div>
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 + i * 0.08 }}
+                className="gradient-border glass rounded-2xl px-4 py-5 text-center"
+              >
+                <p className="font-display text-3xl text-white md:text-4xl">{s.value}</p>
+                <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35">{s.label}</p>
+              </motion.div>
             ))}
           </motion.div>
         </div>
@@ -141,16 +147,20 @@ export function LandingPage() {
 
       <LogoMarquee />
 
+      <WorksWithStrip />
+
       {/* Scroll animation + memory graph */}
       <section id="showcase" className="relative">
         <MemoryGraphScrollSection />
       </section>
 
+      <HowItWorksSteps />
+
       {/* Bento features */}
       <section id="how-it-works" className="relative mx-auto max-w-6xl px-4 py-24 md:px-6">
         <div className="mb-14 text-center">
           <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#4BA0FA]">Why Neuron</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-white md:text-5xl">
+          <h2 className="font-display mt-3 text-3xl text-white md:text-5xl lg:text-6xl">
             Designed for builders
           </h2>
           <p className="mx-auto mt-3 max-w-md text-[15px] text-white/40">
@@ -205,15 +215,15 @@ export function LandingPage() {
         <LandingAurora />
         <div className="relative mx-auto max-w-2xl text-center">
           <Zap className="mx-auto size-10 text-[#4BA0FA]" />
-          <h2 className="mt-5 text-3xl font-bold tracking-tight text-white md:text-5xl">
+          <h2 className="font-display mt-5 text-3xl text-white md:text-5xl lg:text-6xl">
             Give your AI a brain
           </h2>
-          <p className="mt-4 text-[15px] text-white/45">
+          <p className="mt-4 text-[15px] text-white/50">
             Sign in, generate an API key, connect Cursor — under 60 seconds.
           </p>
           <Link
             href="/login"
-            className="sketch-pill mt-10 inline-flex items-center gap-2 bg-[#4BA0FA] px-10 py-4 text-[15px] font-bold text-white transition hover:-translate-y-1"
+            className="btn-glow sketch-pill mt-10 inline-flex items-center gap-2 bg-[#4BA0FA] px-10 py-4 text-[15px] font-bold text-white transition hover:-translate-y-1"
           >
             Log in to Neuron <ArrowRight className="size-4" />
           </Link>

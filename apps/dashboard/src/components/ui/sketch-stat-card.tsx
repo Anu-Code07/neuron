@@ -32,9 +32,9 @@ export function SketchStatCard({
 }: SketchStatCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24, rotate: tilt - 4 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0, rotate: tilt }}
-      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         'sketch-card group relative w-full max-w-[220px]',
         featured && 'sketch-card-featured',
@@ -63,7 +63,7 @@ export function SketchStatCard({
   );
 }
 
-export function HeroFloatingStats({
+export function DashboardHero({
   stats,
   loading,
   onDocs,
@@ -74,30 +74,9 @@ export function HeroFloatingStats({
   onDocs?: () => void;
   onMcp?: () => void;
 }) {
-  const positions = [
-    'left-[2%] top-[8%] sm:left-[4%] sm:top-[12%]',
-    'right-[2%] top-[6%] sm:right-[4%] sm:top-[10%]',
-    'bottom-[8%] left-[4%] sm:bottom-[12%] sm:left-[8%]',
-    'bottom-[6%] right-[2%] sm:bottom-[10%] sm:right-[6%]',
-  ];
-
   return (
-    <div className="relative mx-auto min-h-[420px] w-full max-w-4xl sm:min-h-[480px]">
-      {/* Floating stat cards — hidden on xs, shown sm+ */}
-      <div className="pointer-events-none absolute inset-0 hidden sm:block">
-        {stats.map((s, i) => (
-          <div
-            key={s.label}
-            className={cn('absolute animate-float', positions[i])}
-            style={{ animationDelay: `${i * 0.4}s` }}
-          >
-            <SketchStatCard {...s} loading={loading} />
-          </div>
-        ))}
-      </div>
-
-      {/* Center hero */}
-      <div className="relative z-10 flex min-h-[420px] flex-col items-center justify-center px-4 text-center sm:min-h-[480px]">
+    <div className="mx-auto w-full max-w-5xl space-y-10">
+      <div className="flex flex-col items-center px-4 text-center">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -139,12 +118,21 @@ export function HeroFloatingStats({
         </motion.div>
       </div>
 
-      {/* Mobile: 2×2 grid below hero */}
-      <div className="mt-2 grid grid-cols-2 gap-3 px-2 sm:hidden">
-        {stats.map((s) => (
-          <SketchStatCard key={s.label} {...s} loading={loading} tilt={0} className="max-w-none" />
+      <div className="grid grid-cols-2 gap-3 px-2 md:grid-cols-4 md:gap-4">
+        {stats.map((s, i) => (
+          <SketchStatCard
+            key={s.label}
+            {...s}
+            loading={loading}
+            tilt={0}
+            delay={i * 0.05}
+            className="max-w-none"
+          />
         ))}
       </div>
     </div>
   );
 }
+
+/** @deprecated Use DashboardHero */
+export const HeroFloatingStats = DashboardHero;

@@ -2,8 +2,8 @@
 
 import { NeuronOrb } from '@/components/ui/neuron-orb';
 import { cn } from '@/lib/utils';
-import { useViewMode, type ViewMode } from '@/lib/view-mode';
-import { Home, LayoutGrid, MoreHorizontal, Plus, Search, Sun } from 'lucide-react';
+import { useViewMode } from '@/lib/view-mode';
+import { Home, LayoutGrid, BookOpen, Plus } from 'lucide-react';
 
 interface BottomNavProps {
   onAddMemory?: () => void;
@@ -30,7 +30,7 @@ export function MobileBottomNav({ onAddMemory, onOpenSearch }: BottomNavProps) {
           <NeuronOrb size={40} className="pointer-events-none blur-[1px]" />
         </button>
         <NavTab label="Add" active={false} onClick={() => onAddMemory?.()} icon={Plus} />
-        <NavTab label="More" active={viewMode === 'integrations' || viewMode === 'mcp'} onClick={() => setViewMode('integrations')} icon={MoreHorizontal} />
+        <NavTab label="Docs" active={viewMode === 'docs'} onClick={() => setViewMode('docs')} icon={BookOpen} />
       </div>
     </nav>
   );
