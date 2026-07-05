@@ -31,6 +31,13 @@ node packages/mcp-server/dist/index.js
 
 Copy `.cursor/mcp.json.example` to `.cursor/mcp.json` and fill in your Supabase keys.
 
+## Deploy (Vercel)
+
+1. Import the repo on [Vercel](https://vercel.com/new)
+2. Set **Root Directory** to `apps/dashboard`
+3. `vercel.json` handles monorepo install/build automatically
+4. Add env vars from `.env.example`
+
 ## Supabase
 
 Set in dashboard `.env.local`:
