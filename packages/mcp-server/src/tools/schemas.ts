@@ -92,3 +92,52 @@ export const MergeMemorySchema = z.object({
 export const SummarizeProjectSchema = z.object({
   project_id: z.string().uuid(),
 });
+
+export const FindDuplicatesSchema = z.object({
+  project_id: z.string().uuid(),
+  memory_id: z.string().uuid().optional(),
+});
+
+export const ExtractMemoriesSchema = z.object({
+  project_id: z.string().uuid(),
+  conversation: z.string().min(1).max(50000),
+});
+
+export const PreviewMemoriesSchema = z.object({
+  conversation: z.string().min(1).max(50000),
+});
+
+export const SuggestTagsSchema = z.object({
+  title: z.string().min(1).max(500),
+  content: z.string().min(1).max(10000),
+});
+
+export const AskProjectSchema = z.object({
+  project_id: z.string().uuid(),
+  question: z.string().min(1).max(2000),
+  limit: z.number().min(1).max(20).optional(),
+});
+
+export const SuggestContextSchema = z.object({
+  project_id: z.string().uuid(),
+  task_description: z.string().min(1).max(2000),
+  open_files: z.array(z.string()).optional(),
+  limit: z.number().min(1).max(15).optional(),
+});
+
+export const CondenseMemoriesSchema = z.object({
+  project_id: z.string().uuid(),
+  memory_ids: z.array(z.string().uuid()).min(2).max(5),
+  save: z.boolean().optional(),
+});
+
+export const SuggestRelationshipsSchema = z.object({
+  project_id: z.string().uuid(),
+  memory_id: z.string().uuid(),
+});
+
+export const ExtractFromDiffSchema = z.object({
+  project_id: z.string().uuid(),
+  diff: z.string().min(1).max(50000),
+  save: z.boolean().optional(),
+});

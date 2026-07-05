@@ -147,6 +147,85 @@ export function createHostedEngine(apiUrl: string, apiKey: string, projectId: st
       }));
       return (result.extracted ?? []) as Memory[];
     },
+
+    async previewExtractMemories(conversation: string) {
+      const result = await hostedFetch(base, apiKey, 'preview_memories', { conversation });
+      return (result.drafts ?? []) as Array<{
+        type: string;
+        title: string;
+        content: string;
+        tags?: string[];
+      }>;
+    },
+
+    async suggestTags(title: string, content: string) {
+      const result = await hostedFetch(base, apiKey, 'suggest_tags', { title, content });
+      return (result.tags ?? []) as string[];
+    },
+
+    async askProject(pid: string, question: string, limit?: number) {
+      const result = await hostedFetch(base, apiKey, 'ask_project', withProject({
+        project_id: pid || projectId,
+        question,
+        limit,
+      }));
+      return result as { answer: string; sources: Array<{ id: string; title: string; type: string }> };
+    },
+
+    async suggestContext(
+      pid: string,
+      taskDescription: string,
+      options?: { openFiles?: string[]; limit?: number },
+    ) {
+      const result = await hostedFetch(base, apiKey, 'suggest_context', withProject({
+        project_id: pid || projectId,
+        task_description: taskDescription,
+        open_files: options?.openFiles,
+        limit: options?.limit,
+      }));
+      return result as {
+        narrative: string;
+        memories: Array<{ id: string; title: string; type: string; summary?: string; tags?: string[] }>;
+      };
+    },
+
+    async condenseMemories(pid: string, memoryIds: string[], options?: { save?: boolean }) {
+      const result = await hostedFetch(base, apiKey, 'condense_memories', withProject({
+        project_id: pid || projectId,
+        memory_ids: memoryIds,
+        save: options?.save,
+      }));
+      return result as {
+        draft: { type: string; title: string; content: string; tags?: string[] };
+        memory?: Memory;
+        forgottenIds?: string[];
+      };
+    },
+
+    async suggestRelationships(pid: string, memoryId: string) {
+      const result = await hostedFetch(base, apiKey, 'suggest_relationships', withProject({
+        project_id: pid || projectId,
+        memory_id: memoryId,
+      }));
+      return result as {
+        memoryId: string;
+        suggestions: Array<{ sourceMemoryId: string; targetMemoryId: string; type: string; reason: string }>;
+      };
+    },
+
+    async previewExtractFromDiff(diff: string) {
+      const result = await hostedFetch(base, apiKey, 'extract_from_diff', { diff, save: false });
+      return (result.drafts ?? []) as Array<{ type: string; title: string; content: string; tags?: string[] }>;
+    },
+
+    async extractFromDiff(pid: string, diff: string) {
+      const result = await hostedFetch(base, apiKey, 'extract_from_diff', withProject({
+        project_id: pid || projectId,
+        diff,
+        save: true,
+      }));
+      return (result.extracted ?? []) as Memory[];
+    },
   };
 
   return engine as unknown as ContextEngine;

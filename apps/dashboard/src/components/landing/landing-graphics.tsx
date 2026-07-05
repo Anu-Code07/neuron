@@ -79,10 +79,10 @@ export function LandingAurora() {
 
 export function FloatingHeroCards() {
   const cards = [
-    { label: 'remember_fact', rotate: -12, x: '3%', y: '16%', gradient: 'from-rose-400/40 via-orange-300/20 to-transparent', glow: '#fb7185' },
-    { label: 'context packet', rotate: 9, x: '76%', y: '10%', gradient: 'from-cyan-400/40 via-blue-400/20 to-transparent', glow: '#22d3ee' },
-    { label: 'MCP live', rotate: -5, x: '80%', y: '55%', gradient: 'from-violet-400/35 via-purple-400/15 to-transparent', glow: '#a78bfa' },
-    { label: 'memory graph', rotate: 11, x: '1%', y: '58%', gradient: 'from-emerald-400/35 via-teal-400/15 to-transparent', glow: '#34d399' },
+    { label: 'Auth uses Supabase', detail: 'decision stored', rotate: -12, x: '3%', y: '16%', gradient: 'from-rose-400/40 via-orange-300/20 to-transparent', glow: '#fb7185' },
+    { label: 'Context for this task', detail: 'packet ready', rotate: 9, x: '76%', y: '10%', gradient: 'from-cyan-400/40 via-blue-400/20 to-transparent', glow: '#22d3ee' },
+    { label: 'Cursor connected', detail: 'MCP live', rotate: -5, x: '80%', y: '55%', gradient: 'from-violet-400/35 via-purple-400/15 to-transparent', glow: '#a78bfa' },
+    { label: '12 related memories', detail: 'graph linked', rotate: 11, x: '1%', y: '58%', gradient: 'from-emerald-400/35 via-teal-400/15 to-transparent', glow: '#34d399' },
   ];
 
   return (
@@ -108,7 +108,10 @@ export function FloatingHeroCards() {
           <div className={`relative h-full w-full bg-gradient-to-br ${card.gradient} p-3`}>
             <div className="size-full rounded-xl border border-white/15 bg-black/30 backdrop-blur-sm" />
             <div className="absolute inset-3 rounded-xl bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.15),transparent_60%)]" />
-            <p className="absolute bottom-3 left-3 font-mono text-[10px] font-medium text-white/80">{card.label}</p>
+            <p className="absolute bottom-3 left-3 right-3">
+              <span className="block text-[10px] font-semibold leading-tight text-white/90">{card.label}</span>
+              <span className="mt-0.5 block text-[9px] text-white/50">{card.detail}</span>
+            </p>
           </div>
         </motion.div>
       ))}
@@ -118,21 +121,26 @@ export function FloatingHeroCards() {
 
 export function LogoMarquee() {
   const items = [
-    'Cursor MCP', 'Groq LLM', 'Supabase', 'Context Engine', 'Memory Graph',
-    'NEURON_API_KEY', 'Neuron', 'remember_fact', 'search_memory',
+    'Store decisions once — recall them in every session',
+    'One API key connects Cursor, Claude, or any MCP client',
+    'Facts, bugs, and architecture — never explain twice',
+    'Context packets assembled for your current task',
+    'Share memory with your team — secrets stay on your server',
+    'Search project knowledge in plain English',
+    'Built for developers who ship with AI',
   ];
 
   return (
     <div className="relative overflow-hidden border-y border-white/[0.08] bg-gradient-to-r from-transparent via-white/[0.03] to-transparent py-5">
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#05080D] to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#05080D] to-transparent" />
-      <div className="animate-marquee flex w-max gap-10 whitespace-nowrap">
+      <div className="animate-marquee flex w-max gap-12 whitespace-nowrap">
         {[...items, ...items].map((item, i) => (
           <span
             key={`${item}-${i}`}
-            className="flex items-center gap-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/30"
+            className="flex items-center gap-2.5 text-[13px] font-medium tracking-tight text-white/40"
           >
-            <span className="size-1.5 rounded-full bg-gradient-to-r from-[#4BA0FA] to-[#36fdfd]" />
+            <span className="size-1.5 shrink-0 rounded-full bg-gradient-to-r from-[#4BA0FA] to-[#36fdfd]" />
             {item}
           </span>
         ))}
@@ -170,8 +178,8 @@ export function WorksWithStrip() {
 export function HowItWorksSteps() {
   const steps = [
     { n: '01', title: 'Sign in', desc: 'Create your project in seconds with magic link auth.' },
-    { n: '02', title: 'Get API key', desc: 'One NEURON_API_KEY — share with your team or demo users.' },
-    { n: '03', title: 'Connect Cursor', desc: 'Run init, restart MCP, and your AI remembers everything.' },
+    { n: '02', title: 'Get API key', desc: 'One key per account — copy a single install command for your team.' },
+    { n: '03', title: 'Connect Cursor', desc: 'Run init, restart MCP — your AI picks up where you left off.' },
   ];
 
   return (

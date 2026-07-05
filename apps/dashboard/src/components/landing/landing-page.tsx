@@ -40,7 +40,7 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { value: '18+', label: 'MCP tools' },
+  { value: '25+', label: 'MCP tools' },
   { value: '1', label: 'API key to connect' },
   { value: '∞', label: 'Project memories' },
   { value: '0', label: 'Secrets shared' },

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { buildMcpInstallCommand } from '@/lib/mcp-install';
 
 const SESSION_KEY = 'neuron_api_key_reveal';
 const DEFAULT_PROJECT = process.env.NEXT_PUBLIC_NEURON_PROJECT_ID ?? '';
@@ -14,6 +15,22 @@ export type UserApiKeyMeta = {
   created_at: string;
 };
 
+type UserApiKeyContextValue = {
+  meta: UserApiKeyMeta | null;
+  revealedKey: string | null;
+  displayKey: string | null;
+  hasKey: boolean;
+  loading: boolean;
+  busy: boolean;
+  error: string | null;
+  projectId: string;
+  generate: () => Promise<string | null>;
+  regenerate: () => Promise<string | null>;
+  reload: () => Promise<void>;
+};
+
+const UserApiKeyContext = createContext<UserApiKeyContextValue | null>(null);
+
 function readSessionKey(): string | null {
   if (typeof window === 'undefined') return null;
   return sessionStorage.getItem(SESSION_KEY);
@@ -23,7 +40,7 @@ function writeSessionKey(key: string) {
   sessionStorage.setItem(SESSION_KEY, key);
 }
 
-export function useUserApiKey(projectId = DEFAULT_PROJECT) {
+function useUserApiKeyState(projectId = DEFAULT_PROJECT): UserApiKeyContextValue {
   const [meta, setMeta] = useState<UserApiKeyMeta | null>(null);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,4 +113,31 @@ export function useUserApiKey(projectId = DEFAULT_PROJECT) {
     regenerate: () => createOrRegenerate(true),
     reload: load,
   };
+}
+
+export function UserApiKeyProvider({
+  children,
+  projectId = DEFAULT_PROJECT,
+}: {
+  children: ReactNode;
+  projectId?: string;
+}) {
+  const value = useUserApiKeyState(projectId);
+  return <UserApiKeyContext.Provider value={value}>{children}</UserApiKeyContext.Provider>;
+}
+
+export function useUserApiKey() {
+  const ctx = useContext(UserApiKeyContext);
+  if (!ctx) {
+    throw new Error('useUserApiKey must be used within UserApiKeyProvider');
+  }
+  return ctx;
+}
+
+export async function copyText(text: string) {
+  await navigator.clipboard.writeText(text);
+}
+
+export function getInstallCommandForKey(key: string) {
+  return buildMcpInstallCommand(key);
 }

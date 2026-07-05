@@ -13,12 +13,18 @@ import type { ContextEngineDeps } from './domain/repositories.js';
 import { extractKeywords, rankMemories, truncateToTokenBudget, estimateTokens } from './retrieval/scorer.js';
 import { compressToPacket } from './compression/packet-builder.js';
 import {
+  answerFromMemories,
+  condenseMemoriesWithLlm,
   enhanceContextNarrative,
+  extractMemoriesFromDiff,
   extractMemoriesFromText,
   findDuplicateCandidates,
   generateMemorySummary,
   suggestMemoryTags,
+  suggestRelationshipEdges,
   summarizeMemoriesWithLlm,
+  type CondensedMemoryDraft,
+  type ExtractedMemoryDraft,
 } from './ai/llm-tasks.js';
 import { rerankMemoriesWithLlm } from './ai/llm-rerank.js';
 
@@ -343,6 +349,205 @@ export class ContextEngine {
         tags: draft.tags,
         layer: ContextLayer.Project,
         source: { type: 'conversation' },
+      });
+      saved.push(memory);
+    }
+
+    return saved;
+  }
+
+  /** Preview memory drafts from conversation without saving */
+  async previewExtractMemories(conversation: string): Promise<ExtractedMemoryDraft[]> {
+    if (!this.deps.llm) {
+      throw new Error('GROQ_API_KEY required for memory extraction');
+    }
+    return extractMemoriesFromText(this.deps.llm, conversation);
+  }
+
+  /** Suggest tags for a memory title and content */
+  async suggestTags(title: string, content: string): Promise<string[]> {
+    if (!this.deps.llm) {
+      throw new Error('GROQ_API_KEY required for tag suggestions');
+    }
+    return suggestMemoryTags(this.deps.llm, title, content);
+  }
+
+  /** Answer a natural-language question using project memories (Groq + search) */
+  async askProject(projectId: string, question: string, limit = 10) {
+    if (!this.deps.llm) {
+      throw new Error('GROQ_API_KEY required for ask_project');
+    }
+
+    const search = await this.searchMemory(projectId, question, { limit });
+    const memories = search.results.map((r) => r.memory);
+    const answer = await answerFromMemories(
+      this.deps.llm,
+      question,
+      memories.map((m) => ({
+        id: m.id,
+        title: m.title,
+        content: m.content,
+        type: m.type,
+      })),
+    );
+
+    return {
+      answer,
+      sources: memories.map((m) => ({
+        id: m.id,
+        title: m.title,
+        type: m.type,
+      })),
+    };
+  }
+
+  /** Recommend memories to load for a task (Groq narrative + ranked list) */
+  async suggestContext(
+    projectId: string,
+    taskDescription: string,
+    options?: { openFiles?: string[]; limit?: number },
+  ) {
+    const limit = options?.limit ?? 8;
+    const query = [taskDescription, ...(options?.openFiles ?? [])].filter(Boolean).join(' ');
+    const search = await this.searchMemory(projectId, query, { limit });
+
+    const memories = search.results.map((r) => r.memory);
+    let narrative = '';
+
+    if (this.deps.llm && memories.length) {
+      const snippets = memories.map(
+        (m) => `- ${m.title}: ${m.summary ?? m.content.slice(0, 200)}`,
+      );
+      narrative = await enhanceContextNarrative(this.deps.llm, taskDescription, snippets);
+    }
+
+    return {
+      narrative,
+      memories: memories.map((m) => ({
+        id: m.id,
+        title: m.title,
+        type: m.type,
+        summary: m.summary,
+        tags: m.tags,
+      })),
+    };
+  }
+
+  /** Preview or save a condensed memory merged from several sources */
+  async condenseMemories(
+    projectId: string,
+    memoryIds: string[],
+    options?: { save?: boolean },
+  ): Promise<{ draft: CondensedMemoryDraft; memory?: Memory; forgottenIds?: string[] }> {
+    if (!this.deps.llm) {
+      throw new Error('GROQ_API_KEY required for condense_memories');
+    }
+    if (memoryIds.length < 2 || memoryIds.length > 5) {
+      throw new Error('Provide 2–5 memory IDs to condense');
+    }
+
+    const loaded = await Promise.all(memoryIds.map((id) => this.deps.memories.findById(id)));
+    const memories = loaded.filter((m): m is Memory => m !== null);
+    if (memories.length < 2) {
+      throw new Error('Could not load enough memories to condense');
+    }
+
+    const draft = await condenseMemoriesWithLlm(
+      this.deps.llm,
+      memories.map((m) => ({
+        id: m.id,
+        title: m.title,
+        content: m.content,
+        type: m.type,
+      })),
+    );
+
+    if (!options?.save) {
+      return { draft, forgottenIds: memoryIds };
+    }
+
+    const saved = await this.remember({
+      projectId,
+      type: draft.type as RememberInput['type'],
+      title: draft.title,
+      content: draft.content,
+      tags: draft.tags,
+      layer: ContextLayer.Project,
+      source: { type: 'condense', referenceId: memoryIds.join(',') },
+    });
+
+    for (const id of memoryIds) {
+      await this.forget(id, `Condensed into ${saved.id}`);
+    }
+
+    return { draft, memory: saved, forgottenIds: memoryIds };
+  }
+
+  /** Suggest knowledge graph relationships for a memory */
+  async suggestRelationships(projectId: string, memoryId: string) {
+    if (!this.deps.llm) {
+      throw new Error('GROQ_API_KEY required for suggest_relationships');
+    }
+
+    const focus = await this.deps.memories.findById(memoryId);
+    if (!focus) throw new Error(`Memory not found: ${memoryId}`);
+
+    const existing = await this.deps.relationships.findByMemory(memoryId);
+    const existingTargets = existing.map((r) => r.targetMemoryId);
+
+    const candidates = await this.deps.memories.findByProject(projectId, {
+      status: MemoryStatus.Active,
+      limit: 40,
+    });
+
+    const suggestions = await suggestRelationshipEdges(
+      this.deps.llm,
+      {
+        id: focus.id,
+        title: focus.title,
+        content: focus.content,
+        type: focus.type,
+      },
+      candidates.map((m) => ({
+        id: m.id,
+        title: m.title,
+        content: m.content,
+        type: m.type,
+      })),
+      existingTargets,
+    );
+
+    return {
+      memoryId,
+      suggestions: suggestions.map((s) => ({
+        ...s,
+        sourceMemoryId: memoryId,
+      })),
+    };
+  }
+
+  /** Preview memory drafts extracted from a git diff */
+  async previewExtractFromDiff(diff: string): Promise<ExtractedMemoryDraft[]> {
+    if (!this.deps.llm) {
+      throw new Error('GROQ_API_KEY required for extract_from_diff');
+    }
+    return extractMemoriesFromDiff(this.deps.llm, diff);
+  }
+
+  /** Extract and save memories from a git diff */
+  async extractFromDiff(projectId: string, diff: string): Promise<Memory[]> {
+    const drafts = await this.previewExtractFromDiff(diff);
+    const saved: Memory[] = [];
+
+    for (const draft of drafts) {
+      const memory = await this.remember({
+        projectId,
+        type: draft.type as RememberInput['type'],
+        title: draft.title,
+        content: draft.content,
+        tags: draft.tags,
+        layer: ContextLayer.Project,
+        source: { type: 'diff' },
       });
       saved.push(memory);
     }

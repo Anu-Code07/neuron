@@ -17,6 +17,15 @@ import {
   ForgetMemorySchema,
   MergeMemorySchema,
   SummarizeProjectSchema,
+  FindDuplicatesSchema,
+  ExtractMemoriesSchema,
+  PreviewMemoriesSchema,
+  SuggestTagsSchema,
+  AskProjectSchema,
+  SuggestContextSchema,
+  CondenseMemoriesSchema,
+  SuggestRelationshipsSchema,
+  ExtractFromDiffSchema,
 } from './schemas.js';
 
 function textResult(data: unknown) {
@@ -367,6 +376,117 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
       const parsed = MergeMemorySchema.parse(args);
       const merged = await engine.merge(parsed.source_memory_id, parsed.target_memory_id);
       return textResult({ success: true, memory: merged });
+    },
+  );
+
+  server.tool(
+    'find_duplicates',
+    'Detect likely duplicate memories using Groq AI',
+    FindDuplicatesSchema.shape,
+    async (args) => {
+      const parsed = FindDuplicatesSchema.parse(args);
+      const duplicates = await engine.findDuplicates(parsed.project_id, parsed.memory_id);
+      return textResult({ duplicates });
+    },
+  );
+
+  server.tool(
+    'extract_memories',
+    'Extract structured memories from a conversation and save them to the project',
+    ExtractMemoriesSchema.shape,
+    async (args) => {
+      const parsed = ExtractMemoriesSchema.parse(args);
+      const extracted = await engine.extractMemoriesFromConversation(
+        parsed.project_id,
+        parsed.conversation,
+      );
+      return textResult({ extracted });
+    },
+  );
+
+  server.tool(
+    'preview_memories',
+    'Preview memory drafts from a conversation without saving (Groq extraction)',
+    PreviewMemoriesSchema.shape,
+    async (args) => {
+      const parsed = PreviewMemoriesSchema.parse(args);
+      const drafts = await engine.previewExtractMemories(parsed.conversation);
+      return textResult({ drafts });
+    },
+  );
+
+  server.tool(
+    'suggest_tags',
+    'Suggest tags for a memory title and content using Groq',
+    SuggestTagsSchema.shape,
+    async (args) => {
+      const parsed = SuggestTagsSchema.parse(args);
+      const tags = await engine.suggestTags(parsed.title, parsed.content);
+      return textResult({ tags });
+    },
+  );
+
+  server.tool(
+    'ask_project',
+    'Ask a natural-language question answered from project memories (Groq + search)',
+    AskProjectSchema.shape,
+    async (args) => {
+      const parsed = AskProjectSchema.parse(args);
+      const result = await engine.askProject(parsed.project_id, parsed.question, parsed.limit);
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'suggest_context',
+    'Recommend which memories to load for a task, with a Groq narrative summary',
+    SuggestContextSchema.shape,
+    async (args) => {
+      const parsed = SuggestContextSchema.parse(args);
+      const result = await engine.suggestContext(parsed.project_id, parsed.task_description, {
+        openFiles: parsed.open_files,
+        limit: parsed.limit,
+      });
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'condense_memories',
+    'Merge 2–5 overlapping memories into one (preview by default, pass save=true to apply)',
+    CondenseMemoriesSchema.shape,
+    async (args) => {
+      const parsed = CondenseMemoriesSchema.parse(args);
+      const result = await engine.condenseMemories(parsed.project_id, parsed.memory_ids, {
+        save: parsed.save,
+      });
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'suggest_relationships',
+    'Suggest knowledge graph links for a memory using Groq',
+    SuggestRelationshipsSchema.shape,
+    async (args) => {
+      const parsed = SuggestRelationshipsSchema.parse(args);
+      const result = await engine.suggestRelationships(parsed.project_id, parsed.memory_id);
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    'extract_from_diff',
+    'Extract learnings from a git diff (preview by default, pass save=true to store)',
+    ExtractFromDiffSchema.shape,
+    async (args) => {
+      const parsed = ExtractFromDiffSchema.parse(args);
+      if (parsed.save) {
+        const extracted = await engine.extractFromDiff(parsed.project_id, parsed.diff);
+        return textResult({ extracted });
+      }
+      const drafts = await engine.previewExtractFromDiff(parsed.diff);
+      return textResult({ drafts });
     },
   );
 }

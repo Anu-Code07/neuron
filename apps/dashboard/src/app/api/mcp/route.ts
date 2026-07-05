@@ -137,6 +137,53 @@ export async function POST(request: Request) {
         );
         return NextResponse.json({ extracted });
       }
+      case 'preview_memories': {
+        const drafts = await engine.previewExtractMemories(args.conversation);
+        return NextResponse.json({ drafts });
+      }
+      case 'suggest_tags': {
+        const tags = await engine.suggestTags(args.title, args.content);
+        return NextResponse.json({ tags });
+      }
+      case 'ask_project': {
+        const result = await engine.askProject(
+          args.project_id ?? projectId,
+          args.question,
+          args.limit,
+        );
+        return NextResponse.json(result);
+      }
+      case 'suggest_context': {
+        const result = await engine.suggestContext(
+          args.project_id ?? projectId,
+          args.task_description,
+          { openFiles: args.open_files, limit: args.limit },
+        );
+        return NextResponse.json(result);
+      }
+      case 'condense_memories': {
+        const result = await engine.condenseMemories(
+          args.project_id ?? projectId,
+          args.memory_ids,
+          { save: args.save },
+        );
+        return NextResponse.json(result);
+      }
+      case 'suggest_relationships': {
+        const result = await engine.suggestRelationships(
+          args.project_id ?? projectId,
+          args.memory_id,
+        );
+        return NextResponse.json(result);
+      }
+      case 'extract_from_diff': {
+        if (args.save) {
+          const extracted = await engine.extractFromDiff(args.project_id ?? projectId, args.diff);
+          return NextResponse.json({ extracted });
+        }
+        const drafts = await engine.previewExtractFromDiff(args.diff);
+        return NextResponse.json({ drafts });
+      }
       case 'merge_memory': {
         const dupes = await engine.findDuplicates(projectId, args.source_memory_id);
         const likelyDupe = dupes.find((d) => d.memoryId === args.target_memory_id);

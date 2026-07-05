@@ -141,6 +141,35 @@ export interface ExtractedMemoryDraft {
   tags?: string[];
 }
 
+export async function answerFromMemories(
+  llm: LlmProvider,
+  question: string,
+  memories: Array<{ id: string; title: string; content: string; type: string }>,
+): Promise<string> {
+  if (!memories.length) {
+    return 'No relevant memories found for this question.';
+  }
+
+  const snippets = memories
+    .map((m) => `[${m.id}] (${m.type}) ${m.title}: ${m.content.slice(0, 400)}`)
+    .join('\n---\n');
+
+  return llm.chat(
+    [
+      {
+        role: 'system',
+        content:
+          'Answer the developer question using ONLY the project memories below. If memories are insufficient, say so briefly. Cite memory titles when helpful. Max 250 words.',
+      },
+      {
+        role: 'user',
+        content: `Question: ${question}\n\nMemories:\n${snippets}`,
+      },
+    ],
+    { maxTokens: 400, temperature: 0.2 },
+  );
+}
+
 export async function extractMemoriesFromText(
   llm: LlmProvider,
   conversation: string,
@@ -155,6 +184,123 @@ export async function extractMemoriesFromText(
       {
         role: 'user',
         content: conversation.slice(0, 8000),
+      },
+    ],
+    { maxTokens: 800, temperature: 0.2 },
+  );
+
+  try {
+    const parsed = JSON.parse(raw) as ExtractedMemoryDraft[];
+    if (Array.isArray(parsed)) {
+      return parsed.filter((d) => d.title && d.content).slice(0, 5);
+    }
+  } catch {
+    /* extraction failed */
+  }
+  return [];
+}
+
+export interface CondensedMemoryDraft {
+  type: string;
+  title: string;
+  content: string;
+  tags?: string[];
+}
+
+export async function condenseMemoriesWithLlm(
+  llm: LlmProvider,
+  memories: Array<{ id: string; title: string; content: string; type: string }>,
+): Promise<CondensedMemoryDraft> {
+  const combined = memories
+    .map((m) => `[${m.id}] (${m.type}) ${m.title}:\n${m.content.slice(0, 600)}`)
+    .join('\n---\n');
+
+  const raw = await llm.chat(
+    [
+      {
+        role: 'system',
+        content:
+          'Merge overlapping project memories into one concise memory. Return JSON: { "type": "fact|decision|pattern|note", "title": "...", "content": "...", "tags": [] }. No markdown.',
+      },
+      {
+        role: 'user',
+        content: `Memories to merge:\n${combined}`,
+      },
+    ],
+    { maxTokens: 600, temperature: 0.2 },
+  );
+
+  try {
+    const parsed = JSON.parse(raw) as CondensedMemoryDraft;
+    if (parsed.title && parsed.content) return parsed;
+  } catch {
+    /* fallback below */
+  }
+
+  return {
+    type: 'note',
+    title: memories[0]?.title ?? 'Condensed memory',
+    content: memories.map((m) => m.content).join('\n\n'),
+    tags: [],
+  };
+}
+
+export interface SuggestedRelationship {
+  targetMemoryId: string;
+  type: string;
+  reason: string;
+}
+
+export async function suggestRelationshipEdges(
+  llm: LlmProvider,
+  focus: { id: string; title: string; content: string; type: string },
+  candidates: Array<{ id: string; title: string; content: string; type: string }>,
+  existingTargets: string[],
+): Promise<SuggestedRelationship[]> {
+  const available = candidates.filter((c) => c.id !== focus.id && !existingTargets.includes(c.id));
+  if (!available.length) return [];
+
+  const raw = await llm.chat(
+    [
+      {
+        role: 'system',
+        content:
+          'Suggest knowledge graph edges between a focus memory and candidates. Return JSON array: [{ "targetMemoryId": "uuid", "type": "uses|references|depends_on|implements|supersedes|related_to|calls|contains|blocks|fixes", "reason": "brief" }]. Max 5. Only strong links. No markdown.',
+      },
+      {
+        role: 'user',
+        content: `Focus [${focus.id}] (${focus.type}) ${focus.title}: ${focus.content.slice(0, 400)}\n\nCandidates:\n${available.map((c) => `[${c.id}] (${c.type}) ${c.title}: ${c.content.slice(0, 150)}`).join('\n')}`,
+      },
+    ],
+    { maxTokens: 400, temperature: 0.1 },
+  );
+
+  try {
+    const parsed = JSON.parse(raw) as SuggestedRelationship[];
+    if (Array.isArray(parsed)) {
+      const validIds = new Set(available.map((c) => c.id));
+      return parsed.filter((r) => validIds.has(r.targetMemoryId)).slice(0, 5);
+    }
+  } catch {
+    /* no suggestions */
+  }
+  return [];
+}
+
+export async function extractMemoriesFromDiff(
+  llm: LlmProvider,
+  diff: string,
+): Promise<ExtractedMemoryDraft[]> {
+  const raw = await llm.chat(
+    [
+      {
+        role: 'system',
+        content:
+          'Extract durable project learnings from a git diff. Return JSON array: [{ "type": "fact|decision|pattern|bug|component|file", "title": "...", "content": "...", "tags": [] }]. Max 5 items. Skip trivial formatting. No markdown.',
+      },
+      {
+        role: 'user',
+        content: diff.slice(0, 12000),
       },
     ],
     { maxTokens: 800, temperature: 0.2 },

@@ -38,8 +38,15 @@ const MCP_TOOLS = [
   { name: 'search_memory', desc: 'Hybrid search across all memories' },
   { name: 'get_project_context', desc: 'Assemble an AI-ready context packet' },
   { name: 'summarize_project', desc: 'Generate a compact project brief' },
-  { name: 'extract_memories', desc: 'Pull structured memories from a conversation' },
+  { name: 'extract_memories', desc: 'Pull structured memories from a conversation and save them' },
+  { name: 'preview_memories', desc: 'Preview memory drafts from a conversation without saving' },
   { name: 'find_duplicates', desc: 'Detect likely duplicate memories with Groq' },
+  { name: 'ask_project', desc: 'Ask a question answered from project memories' },
+  { name: 'suggest_tags', desc: 'Get Groq-suggested tags for a memory' },
+  { name: 'suggest_context', desc: 'Recommend memories to load for a task' },
+  { name: 'condense_memories', desc: 'Merge overlapping memories into one' },
+  { name: 'suggest_relationships', desc: 'Propose knowledge graph links for a memory' },
+  { name: 'extract_from_diff', desc: 'Extract learnings from a git diff' },
 ];
 
 export function DocsView() {
