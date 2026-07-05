@@ -55,9 +55,11 @@ export function AppHeader({ projectName = 'My Project', onAddMemory, onOpenSearc
             <p className="max-w-[16ch] truncate text-[10px] leading-tight text-[#6B6B6B] sm:text-[11px]">
               {projectName}
             </p>
-            <p className="-mt-0.5 text-sm font-medium leading-none text-white/90 sm:text-lg">
-              neuron
-            </p>
+            <div className="flex items-baseline gap-1.5">
+              <p className="-mt-0.5 text-sm font-semibold leading-none text-white/90 sm:text-lg">
+                neuron
+              </p>
+            </div>
           </div>
         </button>
 

@@ -19,7 +19,13 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@neuron/shared": ["../../packages/shared/src/index.ts"],
+      "@neuron/shared/*": ["../../packages/shared/src/*"],
+      "@neuron/context-engine": ["../../packages/context-engine/src/index.ts"],
+      "@neuron/context-engine/*": ["../../packages/context-engine/src/*"],
+      "@neuron/supabase": ["../../packages/supabase/src/index.ts"],
+      "@neuron/supabase/*": ["../../packages/supabase/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

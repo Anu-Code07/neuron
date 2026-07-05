@@ -9,8 +9,8 @@ const font = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'Neuron — Context Engine',
-  description: 'The Context Operating System for AI',
+  title: 'Neuron — Context Engine for AI',
+  description: 'The Context Operating System for AI. Persistent memory for Cursor, Claude, and MCP.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
