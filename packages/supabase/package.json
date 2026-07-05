@@ -1,0 +1,33 @@
+{
+  "name": "@neuron/supabase",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "generate-types": "echo 'Run: supabase gen types typescript --project-id wceqrkydjwqvrpnxsonq > src/database.types.ts'"
+  },
+  "dependencies": {
+    "@neuron/context-engine": "workspace:*",
+    "@neuron/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.49.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "typescript": "^5.8.3"
+  }
+}

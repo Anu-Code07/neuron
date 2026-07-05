@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "neuron": {
+      "command": "node",
+      "args": ["packages/mcp-server/dist/index.js"],
+      "env": {
+        "NEXT_PUBLIC_SUPABASE_URL": "https://wceqrkydjwqvrpnxsonq.supabase.co",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "your-publishable-key",
+        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key",
+        "NEURON_PROJECT_ID": "your-project-uuid"
+      }
+    }
+  }
+}
