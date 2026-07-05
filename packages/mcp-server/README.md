@@ -4,16 +4,19 @@ Neuron Context Engine MCP server — structured memory for Cursor, Claude Deskto
 
 ## One-command install (customers)
 
-Get your credentials from the [Neuron dashboard](https://neuron-azure.vercel.app) → Integrations → MCP.
+Get your API key from the [Neuron dashboard](https://neuron-azure.vercel.app) → MCP Setup.
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
-NEURON_PROJECT_ID=your-project-uuid \
-npx @neuron/mcp-server init
+npx @anuraghq/neuron-mcp-server init --api-key nrn_your_key_here
 ```
 
-Restart Cursor. Done.
+Or run without flags — you'll be prompted to paste your key:
+
+```bash
+npx @anuraghq/neuron-mcp-server init
+```
+
+Restart Cursor → Settings → MCP → confirm **neuron** is connected.
 
 ### Manual config (Cursor / Claude Desktop)
 

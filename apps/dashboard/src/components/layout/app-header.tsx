@@ -48,10 +48,10 @@ export function AppHeader({ projectName = 'My Project', onAddMemory, onOpenSearc
       <div className="flex min-w-0 items-center gap-2 md:gap-3">
         <button
           type="button"
-          className="flex shrink-0 items-center rounded-lg px-1.5 py-1 transition-colors hover:bg-white/5"
+          className="flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-white/5"
         >
-          <NeuronMark />
-          <div className="ml-2 hidden flex-col items-start sm:flex">
+          <NeuronMark className="h-7 w-7" />
+          <div className="ml-0.5 hidden flex-col items-start sm:flex">
             <p className="max-w-[16ch] truncate text-[10px] leading-tight text-[#6B6B6B] sm:text-[11px]">
               {projectName}
             </p>

@@ -29,7 +29,7 @@ export function TextRotate({
           animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
           exit={{ y: '-100%', opacity: 0, filter: 'blur(12px)' }}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="text-shimmer font-display inline-block pr-1 italic"
+          className="text-gradient inline-block pr-1 font-extrabold tracking-tight"
         >
           {words[index]}
         </motion.span>

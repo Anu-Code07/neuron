@@ -1,10 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { createInterface } from 'node:readline/promises';
+import { stdin, stdout } from 'node:process';
 
 /** Published npm package — update when @neuron org is claimed */
-const NPX_PACKAGE = '@anuraghq/neuron-mcp-server';
-const DEFAULT_API_URL = 'https://neuron-azure.vercel.app';
+export const NPX_PACKAGE = '@anuraghq/neuron-mcp-server';
+export const DEFAULT_API_URL = 'https://neuron-azure.vercel.app';
 
 interface InitOptions {
   cursor?: boolean;
@@ -12,6 +14,7 @@ interface InitOptions {
   stdout?: boolean;
   apiKey?: string;
   apiUrl?: string;
+  interactive?: boolean;
   /** @deprecated Direct mode — for local dev only */
   supabaseUrl?: string;
   serviceRoleKey?: string;
@@ -19,11 +22,12 @@ interface InitOptions {
 }
 
 function parseArgs(argv: string[]): InitOptions {
-  const opts: InitOptions = { cursor: true };
+  const opts: InitOptions = { cursor: true, interactive: true };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--project') opts.project = true;
     if (arg === '--stdout') opts.stdout = true;
+    if (arg === '--no-interactive') opts.interactive = false;
     if (arg === '--api-key') opts.apiKey = argv[++i];
     if (arg === '--api-url') opts.apiUrl = argv[++i];
     if (arg === '--supabase-url') opts.supabaseUrl = argv[++i];
@@ -33,24 +37,50 @@ function parseArgs(argv: string[]): InitOptions {
   return opts;
 }
 
-function buildHostedConfig(opts: InitOptions) {
-  const apiKey = opts.apiKey ?? process.env.NEURON_API_KEY;
-  const apiUrl = opts.apiUrl ?? process.env.NEURON_API_URL ?? DEFAULT_API_URL;
+function missingKeyMessage(): string {
+  return (
+    'Missing API key. Get one from the Neuron dashboard → MCP Setup, then run:\n\n' +
+    `  npx ${NPX_PACKAGE} init --api-key nrn_your_key_here\n\n` +
+    'Or run without flags and paste your key when prompted:\n\n' +
+    `  npx ${NPX_PACKAGE} init`
+  );
+}
 
-  if (!apiKey?.startsWith('nrn_')) {
-    throw new Error(
-      'Missing NEURON_API_KEY. Get one from the Neuron dashboard → Settings, then:\n' +
-        '  NEURON_API_KEY=nrn_... npx @anuraghq/neuron-mcp-server init\n' +
-        'Or pass: --api-key nrn_... [--api-url https://neuron-azure.vercel.app]',
-    );
+async function promptApiKey(): Promise<string> {
+  const rl = createInterface({ input: stdin, output: stdout });
+  try {
+    stdout.write('\nNeuron MCP setup\n');
+    stdout.write('Get your key at https://neuron-azure.vercel.app → MCP Setup\n\n');
+    const key = (await rl.question('Paste your API key (nrn_...): ')).trim();
+    if (!key.startsWith('nrn_')) {
+      throw new Error('Invalid key — must start with nrn_');
+    }
+    return key;
+  } finally {
+    rl.close();
+  }
+}
+
+async function resolveApiKey(opts: InitOptions): Promise<string | undefined> {
+  const fromFlag = opts.apiKey;
+  const fromEnv = process.env.NEURON_API_KEY;
+  if (fromFlag?.startsWith('nrn_')) return fromFlag;
+  if (fromEnv?.startsWith('nrn_')) return fromEnv;
+
+  if (opts.interactive && stdin.isTTY) {
+    return promptApiKey();
   }
 
+  return undefined;
+}
+
+function buildHostedConfig(apiKey: string, apiUrl?: string) {
   return {
     command: 'npx',
     args: ['-y', NPX_PACKAGE],
     env: {
       NEURON_API_KEY: apiKey,
-      NEURON_API_URL: apiUrl,
+      NEURON_API_URL: apiUrl ?? process.env.NEURON_API_URL ?? DEFAULT_API_URL,
     },
   };
 }
@@ -63,7 +93,7 @@ function buildDirectConfig(opts: InitOptions) {
 
   if (!supabaseUrl || !serviceRoleKey || !projectId) {
     throw new Error(
-      'Direct mode requires Supabase env vars. Prefer hosted mode with NEURON_API_KEY.',
+      'Direct mode requires Supabase env vars. Prefer hosted mode with --api-key nrn_...',
     );
   }
 
@@ -78,18 +108,18 @@ function buildDirectConfig(opts: InitOptions) {
   };
 }
 
-function buildNeuronConfig(opts: InitOptions) {
-  const apiKey = opts.apiKey ?? process.env.NEURON_API_KEY;
-  if (apiKey?.startsWith('nrn_')) return buildHostedConfig(opts);
+async function buildNeuronConfig(opts: InitOptions) {
+  const apiKey = await resolveApiKey(opts);
+  if (apiKey) return buildHostedConfig(apiKey, opts.apiUrl);
 
-  // Fall back to direct mode only when full Supabase creds are present
   const hasDirect =
     (opts.supabaseUrl ?? process.env.NEXT_PUBLIC_SUPABASE_URL) &&
     (opts.serviceRoleKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY) &&
     (opts.projectId ?? process.env.NEURON_PROJECT_ID);
 
   if (hasDirect) return buildDirectConfig(opts);
-  return buildHostedConfig(opts);
+
+  throw new Error(missingKeyMessage());
 }
 
 function mergeMcpJson(existing: Record<string, unknown>, neuronConfig: unknown) {
@@ -106,7 +136,7 @@ export async function runInit(argv: string[]): Promise<void> {
   }
 
   const opts = parseArgs(argv);
-  const neuronConfig = buildNeuronConfig(opts);
+  const neuronConfig = await buildNeuronConfig(opts);
   const output = { mcpServers: { neuron: neuronConfig } };
 
   if (opts.stdout) {

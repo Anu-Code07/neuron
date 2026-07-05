@@ -91,12 +91,12 @@ export function LandingPage() {
               </span>
             </div>
 
-            <h1 className="font-display mt-8 max-w-4xl text-[2.85rem] leading-[1.05] md:text-[5.5rem] md:leading-[1.02] lg:text-[6rem]">
+            <h1 className="font-display mt-8 max-w-4xl text-[2.75rem] font-extrabold leading-[1.08] md:text-[4.75rem] md:leading-[1.02] lg:text-[5.25rem]">
               Make your AI
               <br />
               <TextRotate
                 words={['remember everything', 'know your stack', 'never forget', 'stay in context']}
-                className="text-[2.85rem] md:text-[5.5rem] lg:text-[6rem]"
+                className="text-[2.75rem] md:text-[4.75rem] lg:text-[5.25rem]"
               />
             </h1>
 

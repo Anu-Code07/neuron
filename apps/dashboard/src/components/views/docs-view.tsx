@@ -15,7 +15,12 @@ import {
   Zap,
 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://neuron-azure.vercel.app';
+import {
+  buildMcpInstallCommand,
+  DEFAULT_NEURON_API_URL,
+  MCP_INTERACTIVE_INSTALL,
+  MCP_KEY_PLACEHOLDER,
+} from '@/lib/mcp-install';
 
 const SECTIONS = [
   { id: 'quickstart', label: 'Quick start', icon: Zap },
@@ -83,7 +88,7 @@ export function DocsView() {
       <div className="min-w-0 flex-1">
         <div className="page-hero-gradient mb-6 rounded-3xl px-2 py-6 md:px-4">
           <p className="glass-pill inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium text-[#4BA0FA]">
-            <Sparkles className="size-3" /> v0.1.2
+            <Sparkles className="size-3" /> v0.1.3
           </p>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white md:text-3xl">
             {SECTIONS.find((s) => s.id === active)?.label}
@@ -110,8 +115,8 @@ function QuickstartSection() {
         </p>
         <ol className="mt-5 space-y-4">
           {[
-            'Go to Settings → Generate demo API key',
-            'Run the install command below in terminal',
+            'MCP Setup → Generate your API key',
+            'Copy the one-line install command and run it in terminal',
             'Restart Cursor → Settings → MCP → confirm "neuron" is green',
           ].map((step, i) => (
             <li key={step} className="flex gap-3 text-[13px] text-white/80">
@@ -124,10 +129,10 @@ function QuickstartSection() {
         </ol>
         <GlassCodeBlock
           className="mt-5"
-          code={`NEURON_API_KEY=nrn_your_key \\
-NEURON_API_URL=${API_URL} \\
-npx @anuraghq/neuron-mcp-server init`}
+          code={buildMcpInstallCommand(MCP_KEY_PLACEHOLDER)}
         />
+        <p className="mt-3 text-[12px] text-white/40">Or run interactively — paste your key when prompted:</p>
+        <GlassCodeBlock className="mt-2" code={MCP_INTERACTIVE_INSTALL} />
       </GlassCard>
 
       <GlassCard padding="lg">
@@ -156,8 +161,8 @@ function AuthSection() {
         <div className="glass-inner rounded-xl p-4">
           <p className="text-[12px] font-medium text-white">What customers get</p>
           <ul className="mt-2 space-y-1 text-[12px] text-white/45">
-            <li>• NEURON_API_KEY</li>
-            <li>• NEURON_API_URL</li>
+            <li>• One install command with <code className="font-mono">--api-key</code></li>
+            <li>• Or paste JSON into Cursor MCP settings</li>
           </ul>
         </div>
         <div className="glass-inner rounded-xl p-4">
@@ -171,7 +176,7 @@ function AuthSection() {
       </div>
       <GlassCodeBlock
         className="mt-5"
-        code={`curl ${API_URL}/api/mcp \\
+        code={`curl ${DEFAULT_NEURON_API_URL}/api/mcp \\
   -H "Authorization: Bearer nrn_..."`}
       />
     </GlassCard>

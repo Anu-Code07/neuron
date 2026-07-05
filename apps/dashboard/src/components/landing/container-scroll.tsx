@@ -59,7 +59,7 @@ export function MemoryGraphScrollSection() {
           <h2 className="font-display mt-3 text-3xl text-white md:text-5xl lg:text-6xl md:leading-[1.05]">
             Unleash the power of
             <br />
-            <span className="text-shimmer italic">memory graphs</span>
+            <span className="text-gradient">memory graphs</span>
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-[15px] text-white/45">
             Ordered facts on the left. Emergent connections on the right. Neuron turns chaos into context your AI can use.

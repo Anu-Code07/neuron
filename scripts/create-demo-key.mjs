@@ -191,7 +191,7 @@ async function main() {
     }),
   });
 
-  const initCmd = `NEURON_API_KEY=${key} NEURON_API_URL=${apiUrl} npx @anuraghq/neuron-mcp-server init`;
+  const initCmd = `npx @anuraghq/neuron-mcp-server init --api-key ${key}`;
 
   const mcpJson = JSON.stringify(
     {
@@ -216,6 +216,8 @@ async function main() {
   console.log(`  NEURON_API_URL=${apiUrl}`);
   console.log('\nOne-command install:\n');
   console.log(`  ${initCmd}`);
+  console.log('\nOr interactive (paste key when prompted):\n');
+  console.log('  npx @anuraghq/neuron-mcp-server init');
   console.log('\nOr paste into ~/.cursor/mcp.json:\n');
   console.log(mcpJson);
   console.log('\nThen restart Cursor → Settings → MCP.');

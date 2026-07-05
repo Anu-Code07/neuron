@@ -4,6 +4,12 @@ import { useMemo, useState } from 'react';
 import { Check, Copy, Terminal } from 'lucide-react';
 import { useViewMode } from '@/lib/view-mode';
 import { useUserApiKey } from '@/lib/hooks/use-user-api-key';
+import {
+  buildMcpInstallCommand,
+  buildMcpJsonConfig,
+  MCP_INTERACTIVE_INSTALL,
+  MCP_KEY_PLACEHOLDER,
+} from '@/lib/mcp-install';
 import { ApiKeyPanel } from '@/components/ui/api-key-panel';
 import { GlassCard, GlassCodeBlock } from '@/components/ui/glass-card';
 
@@ -15,47 +21,23 @@ const TOOLS = [
   'find_duplicates', 'extract_memories',
 ];
 
-const API_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://neuron-azure.vercel.app';
-const PLACEHOLDER = 'nrn_generate_your_key_above';
-
-function buildInstallCmd(apiKey: string) {
-  return `NEURON_API_KEY=${apiKey} \\
-NEURON_API_URL=${API_URL} \\
-npx @anuraghq/neuron-mcp-server init`;
-}
-
-function buildMcpConfig(apiKey: string) {
-  return JSON.stringify(
-    {
-      mcpServers: {
-        neuron: {
-          command: 'npx',
-          args: ['-y', '@anuraghq/neuron-mcp-server'],
-          env: {
-            NEURON_API_KEY: apiKey,
-            NEURON_API_URL: API_URL,
-          },
-        },
-      },
-    },
-    null,
-    2,
-  );
-}
-
 export function McpView() {
   const { setViewMode } = useViewMode();
-  const { revealedKey, meta } = useUserApiKey();
-  const [copied, setCopied] = useState<'install' | 'config' | null>(null);
+  const { revealedKey } = useUserApiKey();
+  const [copied, setCopied] = useState<'install' | 'interactive' | 'config' | null>(null);
 
-  const apiKeyForCmd = revealedKey ?? meta?.key_prefix ?? PLACEHOLDER;
   const canCopyCommands = !!revealedKey;
+  const installCmd = useMemo(
+    () => buildMcpInstallCommand(revealedKey ?? MCP_KEY_PLACEHOLDER),
+    [revealedKey],
+  );
+  const mcpConfig = useMemo(
+    () => buildMcpJsonConfig(revealedKey ?? MCP_KEY_PLACEHOLDER),
+    [revealedKey],
+  );
 
-  const installCmd = useMemo(() => buildInstallCmd(apiKeyForCmd), [apiKeyForCmd]);
-  const mcpConfig = useMemo(() => buildMcpConfig(apiKeyForCmd), [apiKeyForCmd]);
-
-  function copy(text: string, key: 'install' | 'config') {
-    if (!canCopyCommands) return;
+  function copy(text: string, key: 'install' | 'interactive' | 'config') {
+    if (key !== 'interactive' && !canCopyCommands) return;
     navigator.clipboard.writeText(text);
     setCopied(key);
     setTimeout(() => setCopied(null), 2000);
@@ -78,7 +60,7 @@ export function McpView() {
           </div>
           <div>
             <h2 className="text-2xl font-semibold text-white">MCP Setup</h2>
-            <p className="text-[13px] text-white/50">One API key per account — safe for external demo users</p>
+            <p className="text-[13px] text-white/50">One command to connect Cursor — Mac, Windows, or Linux</p>
           </div>
         </div>
       </div>
@@ -86,12 +68,18 @@ export function McpView() {
       <ApiKeyPanel className="mt-6" />
 
       <GlassCard glow padding="lg" delay={0.1} className="mt-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-white">Send to your tester</h3>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#4BA0FA]">
+              Recommended
+            </p>
+            <h3 className="mt-1 font-semibold text-white">Copy & run in terminal</h3>
+            <p className="mt-1 text-[12px] text-white/45">
+              Paste in Terminal (Mac/Linux) or PowerShell (Windows). Then restart Cursor.
+            </p>
             {!canCopyCommands && (
-              <p className="mt-1 text-[12px] text-white/40">
-                Generate or regenerate your key above to unlock copy-ready commands.
+              <p className="mt-2 text-[12px] text-amber-200/80">
+                Generate your key above first — the command will include your real key.
               </p>
             )}
           </div>
@@ -105,12 +93,40 @@ export function McpView() {
             {copied === 'install' ? 'Copied!' : 'Copy command'}
           </button>
         </div>
-        <GlassCodeBlock code={installCmd} className="mt-4 whitespace-pre-wrap" />
+        <GlassCodeBlock code={installCmd} className="mt-4 text-[12px]" />
+      </GlassCard>
+
+      <GlassCard padding="lg" delay={0.12} className="mt-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
+              No flags
+            </p>
+            <h3 className="mt-1 font-semibold text-white">Interactive setup</h3>
+            <p className="mt-1 text-[12px] text-white/45">
+              Run this, then paste your <code className="font-mono text-white/60">nrn_</code> key when asked.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => copy(MCP_INTERACTIVE_INSTALL, 'interactive')}
+            className="glass-pill flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-[12px] text-white hover:bg-white/10"
+          >
+            {copied === 'interactive' ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied === 'interactive' ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+        <GlassCodeBlock code={MCP_INTERACTIVE_INSTALL} className="mt-4 text-[12px]" />
       </GlassCard>
 
       <GlassCard padding="lg" delay={0.15} className="mt-4">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="font-semibold text-white">Manual config</h3>
+          <div>
+            <h3 className="font-semibold text-white">Manual config</h3>
+            <p className="mt-1 text-[12px] text-white/45">
+              No terminal — paste into Cursor → Settings → MCP → Edit config.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => copy(mcpConfig, 'config')}
