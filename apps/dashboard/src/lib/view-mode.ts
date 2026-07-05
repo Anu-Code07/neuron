@@ -8,6 +8,7 @@ export const VIEW_MODES = [
   'graph',
   'context',
   'integrations',
+  'docs',
   'mcp',
   'settings',
 ] as const;

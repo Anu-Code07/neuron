@@ -92,3 +92,132 @@ body {
 ::selection {
   background: rgba(75, 160, 250, 0.35);
 }
+
+/* ── Glassmorphism system ── */
+.glass {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.09) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.glass-inner {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-hover {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.glass-hover:hover {
+  border-color: rgba(75, 160, 250, 0.35);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(75, 160, 250, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.glow-border {
+  position: relative;
+}
+
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(75, 160, 250, 0.4), rgba(54, 253, 253, 0.15), transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+
+.page-hero-gradient {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(75, 160, 250, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 30% at 90% 20%, rgba(54, 253, 253, 0.08) 0%, transparent 50%);
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float-gentle 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float { animation: none; }
+  .glass-hover:hover { transform: none; }
+}
+
+/* ── Sketch / Neubrutalism (21st.dev pricing style) ── */
+.sketch-card {
+  background: #fafafa;
+  border: 2.5px solid #0a0a0a;
+  border-radius: 18px;
+  padding: 1.25rem 1.125rem;
+  box-shadow: 5px 5px 0 #0a0a0a;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sketch-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 #0a0a0a;
+}
+
+.sketch-card-featured {
+  background: #fffef5;
+  box-shadow: 6px 6px 0 #0a0a0a;
+}
+
+.sketch-badge {
+  background: #fff3b0;
+  border: 2px solid #0a0a0a;
+  border-radius: 9999px;
+  box-shadow: 2px 2px 0 #0a0a0a;
+}
+
+.sketch-icon-ring {
+  display: flex;
+  size: 2.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid #0a0a0a;
+  box-shadow: 2px 2px 0 #0a0a0a;
+}
+
+.sketch-pill {
+  border-radius: 9999px;
+  border: 2.5px solid #0a0a0a;
+  box-shadow: 4px 4px 0 #0a0a0a;
+}
+
+.sketch-pill:hover {
+  box-shadow: 5px 5px 0 #0a0a0a;
+}

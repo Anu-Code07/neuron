@@ -7,10 +7,11 @@ import {
   Home,
   LayoutGrid,
   Network,
+  Plug,
   Plus,
   Search,
   Settings,
-  Sun,
+  BookOpen,
   Code2,
   LogOut,
 } from 'lucide-react';
@@ -27,7 +28,8 @@ const tabs: { id: ViewMode | 'integrations'; label: string; icon: typeof Home }[
   { id: 'home', label: 'Home', icon: Home },
   { id: 'memories', label: 'Memories', icon: LayoutGrid },
   { id: 'graph', label: 'Graph', icon: Network },
-  { id: 'integrations', label: 'Integrations', icon: Sun },
+  { id: 'integrations', label: 'Integrations', icon: Plug },
+  { id: 'docs', label: 'Docs', icon: BookOpen },
   { id: 'mcp', label: 'MCP', icon: Code2 },
 ];
 

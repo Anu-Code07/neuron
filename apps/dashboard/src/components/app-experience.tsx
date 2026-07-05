@@ -11,6 +11,7 @@ import { MemoriesView } from '@/components/views/memories-view';
 import { GraphView } from '@/components/views/graph-view';
 import { ContextView } from '@/components/views/context-view';
 import { IntegrationsView } from '@/components/views/integrations-view';
+import { DocsView } from '@/components/views/docs-view';
 import { McpView } from '@/components/views/mcp-view';
 import { SettingsView } from '@/components/views/settings-view';
 import { SearchModal } from '@/components/search-modal';
@@ -22,7 +23,7 @@ export function AppExperience() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
-  const showBackdrop = ['home', 'memories', 'graph'].includes(viewMode);
+  const showBackdrop = ['home', 'memories', 'graph', 'integrations', 'docs', 'mcp'].includes(viewMode);
   const isFullHeight = viewMode === 'graph' || viewMode === 'context';
   const showBottomNav = viewMode !== 'context';
 
@@ -55,6 +56,7 @@ export function AppExperience() {
           {viewMode === 'graph' && <GraphView />}
           {viewMode === 'context' && <ContextView />}
           {viewMode === 'integrations' && <IntegrationsView />}
+          {viewMode === 'docs' && <DocsView />}
           {viewMode === 'mcp' && <McpView />}
           {viewMode === 'settings' && <SettingsView />}
         </motion.main>
