@@ -116,6 +116,8 @@ export function createMemoryRepository(client: NeuronSupabaseClient): MemoryRepo
       const patch: Record<string, unknown> = {};
       if (data.title) patch.title = data.title;
       if (data.content) patch.content = data.content;
+      if (data.summary !== undefined) patch.summary = data.summary;
+      if (data.tags) patch.tags = data.tags;
       if (data.status) patch.status = data.status;
       if (data.confidence !== undefined) patch.confidence = data.confidence;
       if (data.metadata) patch.metadata = data.metadata;

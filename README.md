@@ -27,9 +27,26 @@ pnpm --filter @neuron/mcp-server build
 node packages/mcp-server/dist/index.js
 ```
 
-## MCP Setup (Cursor)
+## MCP Setup (Cursor / Claude)
 
-Copy `.cursor/mcp.json.example` to `.cursor/mcp.json` and fill in your Supabase keys.
+**Customers — one command:**
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=your-key \
+NEURON_PROJECT_ID=your-project-uuid \
+npx @neuron/mcp-server init
+```
+
+**Maintainers — publish to npm:** see [docs/publish-mcp.md](docs/publish-mcp.md)
+
+**Local dev:**
+
+```bash
+cp packages/mcp-server/.env.example packages/mcp-server/.env
+pnpm --filter @neuron/mcp-server build
+node packages/mcp-server/dist/index.js
+```
 
 ## Deploy (Vercel)
 

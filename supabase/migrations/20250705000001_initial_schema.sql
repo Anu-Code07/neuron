@@ -2,7 +2,6 @@
 -- Phase 1: Core tables, knowledge graph, embeddings, RLS
 
 -- Extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "vector";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
@@ -52,7 +51,7 @@ CREATE TABLE public.profiles (
 -- ============================================================
 
 CREATE TABLE public.organizations (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL,
   slug        TEXT NOT NULL UNIQUE,
   owner_id    UUID NOT NULL REFERENCES public.profiles(id),
@@ -61,7 +60,7 @@ CREATE TABLE public.organizations (
 );
 
 CREATE TABLE public.organization_members (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   user_id         UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   role            org_role NOT NULL DEFAULT 'member',
@@ -75,7 +74,7 @@ CREATE TABLE public.organization_members (
 -- ============================================================
 
 CREATE TABLE public.projects (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   name            TEXT NOT NULL,
   slug            TEXT NOT NULL,
@@ -88,7 +87,7 @@ CREATE TABLE public.projects (
 );
 
 CREATE TABLE public.project_members (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id  UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   user_id     UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   role        project_role NOT NULL DEFAULT 'editor',
@@ -98,7 +97,7 @@ CREATE TABLE public.project_members (
 );
 
 CREATE TABLE public.repositories (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id      UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   name            TEXT NOT NULL,
   url             TEXT,
@@ -113,7 +112,7 @@ CREATE TABLE public.repositories (
 -- ============================================================
 
 CREATE TABLE public.memories (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id      UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   type            memory_type NOT NULL,
   layer           context_layer NOT NULL DEFAULT 'project',
@@ -137,7 +136,7 @@ CREATE TABLE public.memories (
 );
 
 CREATE TABLE public.relationships (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id        UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   source_memory_id  UUID NOT NULL REFERENCES public.memories(id) ON DELETE CASCADE,
   target_memory_id  UUID NOT NULL REFERENCES public.memories(id) ON DELETE CASCADE,
@@ -153,7 +152,7 @@ CREATE TABLE public.relationships (
 -- ============================================================
 
 CREATE TABLE public.embeddings (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   memory_id   UUID NOT NULL REFERENCES public.memories(id) ON DELETE CASCADE,
   project_id  UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   embedding   vector(1536) NOT NULL,
@@ -168,7 +167,7 @@ CREATE TABLE public.embeddings (
 -- ============================================================
 
 CREATE TABLE public.context_snapshots (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id      UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   branch_name     TEXT,
   task_id         UUID REFERENCES public.memories(id) ON DELETE SET NULL,
@@ -183,7 +182,7 @@ CREATE TABLE public.context_snapshots (
 -- ============================================================
 
 CREATE TABLE public.conversations (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id  UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   title       TEXT,
   messages    JSONB NOT NULL DEFAULT '[]',
@@ -198,7 +197,7 @@ CREATE TABLE public.conversations (
 -- ============================================================
 
 CREATE TABLE public.summaries (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id  UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   scope       TEXT NOT NULL,
   scope_id    UUID,
@@ -213,7 +212,7 @@ CREATE TABLE public.summaries (
 -- ============================================================
 
 CREATE TABLE public.api_keys (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id  UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
   key_hash    TEXT NOT NULL,
@@ -230,7 +229,7 @@ CREATE TABLE public.api_keys (
 -- ============================================================
 
 CREATE TABLE public.audit_logs (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id    UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   user_id       UUID REFERENCES public.profiles(id),
   action        TEXT NOT NULL,
@@ -245,7 +244,7 @@ CREATE TABLE public.audit_logs (
 -- ============================================================
 
 CREATE TABLE public.notifications (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   project_id  UUID REFERENCES public.projects(id) ON DELETE CASCADE,
   type        TEXT NOT NULL,
@@ -257,7 +256,7 @@ CREATE TABLE public.notifications (
 );
 
 CREATE TABLE public.comments (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id  UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   memory_id   UUID REFERENCES public.memories(id) ON DELETE CASCADE,
   user_id     UUID NOT NULL REFERENCES public.profiles(id),

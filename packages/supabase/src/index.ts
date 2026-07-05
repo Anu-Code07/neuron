@@ -1,4 +1,5 @@
 import type { ContextEngineDeps } from '@neuron/context-engine';
+import { createAiDeps } from '@neuron/context-engine';
 import { createNeuronClient, createServiceClient } from './client.js';
 import { createMemoryRepository } from './repositories/memory.repository.js';
 import { createRelationshipRepository } from './repositories/relationship.repository.js';
@@ -15,6 +16,7 @@ export function createContextEngineDeps(useServiceRole = false): ContextEngineDe
     relationships: createRelationshipRepository(client),
     embeddings: createEmbeddingRepository(client),
     projects: createProjectRepository(client),
+    ...createAiDeps(),
   };
 }
 

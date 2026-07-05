@@ -1,39 +1,56 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Check, Copy, Terminal } from 'lucide-react';
 import { useViewMode } from '@/lib/view-mode';
-
-const MCP_CONFIG = `{
-  "mcpServers": {
-    "neuron": {
-      "command": "node",
-      "args": ["${typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_MCP_SERVER_PATH ?? '/path/to/neuron/packages/mcp-server/dist/index.js' : '/path/to/neuron/packages/mcp-server/dist/index.js'}"],
-      "env": {
-        "NEXT_PUBLIC_SUPABASE_URL": "https://your-project.supabase.co",
-        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "your-publishable-key",
-        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key",
-        "NEURON_PROJECT_ID": "your-project-uuid"
-      }
-    }
-  }
-}`;
 
 const TOOLS = [
   'remember_fact', 'remember_decision', 'remember_pattern', 'remember_bug',
   'remember_component', 'remember_api', 'remember_task', 'remember_architecture',
   'search_memory', 'get_project_context', 'get_task_context', 'get_file_context',
   'find_related', 'summarize_project', 'forget_memory', 'merge_memory',
+  'find_duplicates', 'extract_memories',
 ];
+
+const API_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://neuron-azure.vercel.app';
+
+function buildInstallCmd(apiKey: string) {
+  return `NEURON_API_KEY=${apiKey} \\
+NEURON_API_URL=${API_URL} \\
+npx @anuraghq/neuron-mcp-server init`;
+}
+
+function buildMcpConfig(apiKey: string) {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        neuron: {
+          command: 'npx',
+          args: ['-y', '@anuraghq/neuron-mcp-server'],
+          env: {
+            NEURON_API_KEY: apiKey,
+            NEURON_API_URL: API_URL,
+          },
+        },
+      },
+    },
+    null,
+    2,
+  );
+}
 
 export function McpView() {
   const { setViewMode } = useViewMode();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'install' | 'config' | null>(null);
+  const [demoKey, setDemoKey] = useState('nrn_your_key_from_dashboard_settings');
 
-  function copyConfig() {
-    navigator.clipboard.writeText(MCP_CONFIG);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const installCmd = useMemo(() => buildInstallCmd(demoKey), [demoKey]);
+  const mcpConfig = useMemo(() => buildMcpConfig(demoKey), [demoKey]);
+
+  function copy(text: string, key: 'install' | 'config') {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   }
 
   return (
@@ -52,41 +69,71 @@ export function McpView() {
         </div>
         <div>
           <h2 className="text-xl font-semibold text-[#fafafa]">Neuron MCP Server</h2>
-          <p className="text-[13px] text-[#737373]">Context Engine for any MCP-compatible AI assistant</p>
+          <p className="text-[13px] text-[#737373]">One API key — safe for external demo users</p>
         </div>
       </div>
 
       <section className="mt-8 sm-card p-5">
-        <h3 className="text-[15px] font-semibold text-[#fafafa]">1. Build the server</h3>
-        <pre className="mt-3 overflow-x-auto rounded-xl bg-[#0A0E14] p-4 text-[12px] text-[#8B8B8B] font-mono">
-{`cd neuron
-pnpm install
-pnpm --filter @neuron/mcp-server build`}
+        <h3 className="text-[15px] font-semibold text-[#fafafa]">For you (host)</h3>
+        <p className="mt-2 text-[12px] text-[#737373]">
+          Go to <strong className="text-[#fafafa]">Settings → Generate demo API key</strong>, copy the key, then paste it below to preview the install command you send to testers.
+        </p>
+        <label className="mt-3 block">
+          <span className="text-[12px] text-[#737373]">NEURON_API_KEY preview</span>
+          <input
+            value={demoKey}
+            onChange={(e) => setDemoKey(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-white/10 bg-[#14161A] px-4 py-2.5 text-sm text-[#fafafa] font-mono"
+          />
+        </label>
+      </section>
+
+      <section className="mt-4 sm-card p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[15px] font-semibold text-[#fafafa]">Send to your tester</h3>
+          <button
+            type="button"
+            onClick={() => copy(installCmd, 'install')}
+            className="flex items-center gap-1.5 rounded-lg bg-[#4BA0FA] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#4BA0FA]/90"
+          >
+            {copied === 'install' ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied === 'install' ? 'Copied!' : 'Copy command'}
+          </button>
+        </div>
+        <p className="mt-2 text-[12px] text-[#737373]">
+          They run this once, restart Cursor, and MCP connects to your hosted Neuron backend.
+        </p>
+        <pre className="mt-3 overflow-x-auto rounded-xl bg-[#0A0E14] p-4 text-[12px] text-[#8B8B8B] font-mono whitespace-pre-wrap">
+          {installCmd}
         </pre>
       </section>
 
       <section className="mt-4 sm-card p-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-[15px] font-semibold text-[#fafafa]">2. Add to Cursor</h3>
+          <h3 className="text-[15px] font-semibold text-[#fafafa]">Or paste config manually</h3>
           <button
             type="button"
-            onClick={copyConfig}
+            onClick={() => copy(mcpConfig, 'config')}
             className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-[12px] text-[#fafafa] hover:bg-white/10"
           >
-            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-            {copied ? 'Copied!' : 'Copy config'}
+            {copied === 'config' ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied === 'config' ? 'Copied!' : 'Copy config'}
           </button>
         </div>
-        <p className="mt-2 text-[12px] text-[#737373]">
-          Paste into <code className="text-[#4BA0FA]">~/.cursor/mcp.json</code> or project <code className="text-[#4BA0FA]">.cursor/mcp.json</code>
-        </p>
         <pre className="mt-3 overflow-x-auto rounded-xl bg-[#0A0E14] p-4 text-[11px] leading-relaxed text-[#8B8B8B] font-mono">
-          {MCP_CONFIG}
+          {mcpConfig}
         </pre>
       </section>
 
       <section className="mt-4 sm-card p-5">
-        <h3 className="text-[15px] font-semibold text-[#fafafa]">Available tools ({TOOLS.length})</h3>
+        <h3 className="text-[15px] font-semibold text-[#fafafa]">Try it in Cursor</h3>
+        <p className="mt-2 text-[13px] text-[#737373]">
+          Ask: &ldquo;Use neuron to remember_fact that our prod URL is neuron-azure.vercel.app&rdquo;
+        </p>
+      </section>
+
+      <section className="mt-4 sm-card p-5">
+        <h3 className="text-[15px] font-semibold text-[#fafafa]">Tools ({TOOLS.length})</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {TOOLS.map((t) => (
             <span key={t} className="rounded-lg bg-[#0F1217] px-2.5 py-1 text-[11px] font-mono text-[#4BA0FA]">
@@ -94,13 +141,6 @@ pnpm --filter @neuron/mcp-server build`}
             </span>
           ))}
         </div>
-      </section>
-
-      <section className="mt-4 sm-card p-5">
-        <h3 className="text-[15px] font-semibold text-[#fafafa]">3. Test it</h3>
-        <p className="mt-2 text-[13px] text-[#737373]">
-          Ask Cursor: &ldquo;Use neuron to get_project_context for this project&rdquo;
-        </p>
       </section>
     </div>
   );

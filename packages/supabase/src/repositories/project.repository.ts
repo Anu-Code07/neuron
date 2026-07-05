@@ -41,9 +41,22 @@ export function createEmbeddingRepository(
       }
     },
 
-    async search(_projectId, _vector, _limit) {
-      // Vector search requires pgvector RPC — Phase 4
-      return [];
+    async search(projectId, vector, limit) {
+      const { data, error } = await client.rpc('match_embeddings' as never, {
+        query_embedding: JSON.stringify(vector),
+        p_project_id: projectId,
+        match_count: limit,
+      } as never);
+
+      if (error) {
+        console.warn('Vector search skipped:', error.message);
+        return [];
+      }
+
+      return ((data as Array<{ memory_id: string; similarity: number }>) ?? []).map((row) => ({
+        memoryId: row.memory_id,
+        similarity: row.similarity,
+      }));
     },
   };
 }

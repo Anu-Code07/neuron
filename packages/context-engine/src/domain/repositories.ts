@@ -64,4 +64,5 @@ export interface ContextEngineDeps {
   embeddings: EmbeddingRepository;
   projects: ProjectRepository;
   embeddingProvider?: EmbeddingProvider;
+  llm?: import('../ai/llm-provider.js').LlmProvider;
 }

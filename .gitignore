@@ -37,6 +37,16 @@ test-results/
 supabase/.branches/
 supabase/.temp/
 
+# MCP publish staging
+packages/mcp-server/.publish/
+
+# Local MCP config (may contain API keys)
+.cursor/mcp.json
+.mcp.json
+
+# Vercel
+.vercel/
+
 # SQLite local cache
 *.db
 *.db-journal

@@ -12,6 +12,15 @@ import {
 import type { ContextEngineDeps } from './domain/repositories.js';
 import { extractKeywords, rankMemories, truncateToTokenBudget, estimateTokens } from './retrieval/scorer.js';
 import { compressToPacket } from './compression/packet-builder.js';
+import {
+  enhanceContextNarrative,
+  extractMemoriesFromText,
+  findDuplicateCandidates,
+  generateMemorySummary,
+  suggestMemoryTags,
+  summarizeMemoriesWithLlm,
+} from './ai/llm-tasks.js';
+import { rerankMemoriesWithLlm } from './ai/llm-rerank.js';
 
 const DEFAULT_TOKEN_BUDGET = 4000;
 
@@ -39,14 +48,30 @@ export class ContextEngine {
     }
 
     if (this.deps.embeddingProvider) {
-      const text = `${memory.title}\n${memory.content}`;
-      const vector = await this.deps.embeddingProvider.embed(text);
-      await this.deps.embeddings.create(
-        memory.id,
-        input.projectId,
-        vector,
-        this.deps.embeddingProvider.model,
-      );
+      try {
+        const text = `${memory.title}\n${memory.content}`;
+        const vector = await this.deps.embeddingProvider.embed(text);
+        await this.deps.embeddings.create(
+          memory.id,
+          input.projectId,
+          vector,
+          this.deps.embeddingProvider.model,
+        );
+      } catch (err) {
+        console.warn('Embedding skipped:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    if (this.deps.llm && !memory.summary) {
+      try {
+        const summary = await generateMemorySummary(this.deps.llm, memory.title, memory.content);
+        const tags = input.tags?.length
+          ? input.tags
+          : await suggestMemoryTags(this.deps.llm, memory.title, memory.content);
+        return await this.deps.memories.update(memory.id, { summary, tags });
+      } catch (err) {
+        console.warn('AI memory enrichment skipped:', err instanceof Error ? err.message : err);
+      }
     }
 
     return memory;
@@ -84,12 +109,28 @@ export class ContextEngine {
       limit: 100,
     });
 
-    const scored = rankMemories(memories, signals, semanticScores);
+    let results = rankMemories(memories, signals, semanticScores);
     const limit = options?.limit ?? 20;
 
+    if (this.deps.llm && query.trim()) {
+      try {
+        results = await rerankMemoriesWithLlm(
+          this.deps.llm,
+          query,
+          results.map((r) => r.memory),
+          limit,
+        );
+      } catch (err) {
+        console.warn('LLM rerank skipped:', err instanceof Error ? err.message : err);
+        results = results.slice(0, limit);
+      }
+    } else {
+      results = results.slice(0, limit);
+    }
+
     return {
-      results: scored.slice(0, limit),
-      totalCount: scored.length,
+      results,
+      totalCount: results.length,
       query,
     };
   }
@@ -158,7 +199,28 @@ export class ContextEngine {
       await this.deps.memories.incrementAccess(s.memory.id);
     }
 
-    return compressToPacket(project, selected, query);
+    const packet = compressToPacket(project, selected, query);
+
+    if (this.deps.llm && (query.query || query.taskDescription)) {
+      try {
+        const focus = query.query ?? query.taskDescription ?? '';
+        const snippets = selected.map(
+          (s) => `- ${s.memory.title}: ${s.memory.summary ?? s.memory.content.slice(0, 200)}`,
+        );
+        const narrative = await enhanceContextNarrative(this.deps.llm, focus, snippets);
+        packet.architecture = {
+          summary: narrative,
+          layers: packet.architecture?.layers ?? [],
+          patterns: packet.architecture?.patterns ?? [],
+          keyDecisions: packet.architecture?.keyDecisions ?? [],
+        };
+        packet.tokenEstimate = estimateTokens(JSON.stringify(packet));
+      } catch (err) {
+        console.warn('AI context narrative skipped:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    return packet;
   }
 
   /** Mark a memory as forgotten */
@@ -166,8 +228,21 @@ export class ContextEngine {
     await this.deps.memories.forget({ memoryId, reason });
   }
 
-  /** Merge two memories into one */
-  async merge(sourceId: string, targetId: string): Promise<Memory> {
+  /** Merge two memories — checks duplicates unless force=true */
+  async merge(sourceId: string, targetId: string, options?: { force?: boolean }): Promise<Memory> {
+    if (!options?.force && this.deps.llm) {
+      const dupes = await this.findDuplicates(
+        (await this.deps.memories.findById(sourceId))?.projectId ?? '',
+        sourceId,
+      );
+      const match = dupes.find((d) => d.memoryId === targetId);
+      if (!match || match.similarity < 0.6) {
+        throw new Error(
+          `Memories may not be duplicates (similarity ${match?.similarity ?? 0}). Pass force=true to merge anyway.`,
+        );
+      }
+    }
+
     return this.deps.memories.merge({
       sourceMemoryId: sourceId,
       targetMemoryId: targetId,
@@ -216,6 +291,62 @@ export class ContextEngine {
         .forEach((b) => lines.push(`- [${(b.metadata as { severity?: string }).severity}] ${b.title}`));
     }
 
-    return lines.join('\n');
+    const raw = lines.join('\n');
+
+    if (this.deps.llm) {
+      try {
+        const project = await this.deps.projects.findById(projectId);
+        return await summarizeMemoriesWithLlm(this.deps.llm, raw, project?.name);
+      } catch (err) {
+        console.warn('AI summarize skipped:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    return raw || 'No project memories stored yet.';
+  }
+
+  /** Find likely duplicate memories using Groq */
+  async findDuplicates(projectId: string, memoryId?: string) {
+    const memories = await this.deps.memories.findByProject(projectId, {
+      status: MemoryStatus.Active,
+      limit: 80,
+    });
+
+    if (!this.deps.llm || memories.length < 2) return [];
+
+    const focus = memoryId ? memories.find((m) => m.id === memoryId) : memories[0];
+    if (!focus) return [];
+
+    try {
+      return await findDuplicateCandidates(this.deps.llm, focus, memories);
+    } catch (err) {
+      console.warn('Duplicate detection skipped:', err instanceof Error ? err.message : err);
+      return [];
+    }
+  }
+
+  /** Extract structured memories from a Cursor/AI conversation transcript */
+  async extractMemoriesFromConversation(projectId: string, conversation: string) {
+    if (!this.deps.llm) {
+      throw new Error('GROQ_API_KEY required for memory extraction');
+    }
+
+    const drafts = await extractMemoriesFromText(this.deps.llm, conversation);
+    const saved: Memory[] = [];
+
+    for (const draft of drafts) {
+      const memory = await this.remember({
+        projectId,
+        type: draft.type as RememberInput['type'],
+        title: draft.title,
+        content: draft.content,
+        tags: draft.tags,
+        layer: ContextLayer.Project,
+        source: { type: 'conversation' },
+      });
+      saved.push(memory);
+    }
+
+    return saved;
   }
 }

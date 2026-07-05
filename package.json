@@ -10,6 +10,7 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "db:generate-types": "pnpm --filter @neuron/supabase generate-types",
+    "demo:key": "node scripts/create-demo-key.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
   },
   "devDependencies": {
