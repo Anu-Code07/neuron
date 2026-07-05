@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:workspace": "pnpm --filter @neuron/shared --filter @neuron/context-engine --filter @neuron/supabase run build",
+    "build:all": "pnpm run build:workspace && next build",
     "start": "next start",
     "lint": "eslint"
   },
