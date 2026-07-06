@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2, Search, X } from 'lucide-react';
+import { memoryPreviewLine } from '@/components/ui/memory-content';
 
 interface SearchModalProps {
   open: boolean;
@@ -62,7 +63,9 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
                   <span className="text-[10px] uppercase text-[#4BA0FA]">{r.type}</span>
                   <span className="text-[13px] font-medium text-[#fafafa]">{r.title}</span>
                 </div>
-                <p className="mt-1 line-clamp-2 text-[12px] text-[#737373]">{r.content}</p>
+                <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-[#8B8B8B]">
+                  {memoryPreviewLine(r.content, 140)}
+                </p>
               </div>
             ))
           )}

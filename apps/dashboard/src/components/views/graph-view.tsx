@@ -1,17 +1,20 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Network, X, Link2, Sparkles } from 'lucide-react';
+import { Loader2, Network, X, Link2, Sparkles, Braces } from 'lucide-react';
 import { useState } from 'react';
 import { useKnowledgeGraph, type GraphMemory } from '@/lib/hooks/use-knowledge-graph';
 import { getMemoryTypeMeta } from '@/lib/memory-theme';
 import { useViewMode } from '@/lib/view-mode';
 import { KnowledgeGraphCanvas } from '@/components/graph/knowledge-graph-canvas';
+import { MemoryContent } from '@/components/ui/memory-content';
+import { MemoryJsonModal } from '@/components/ui/memory-json-modal';
 import { cn } from '@/lib/utils';
 
 export function GraphView() {
   const { data, isLoading } = useKnowledgeGraph();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [jsonMemoryId, setJsonMemoryId] = useState<string | null>(null);
   const { setViewMode } = useViewMode();
 
   const memories = data?.memories ?? [];
@@ -86,10 +89,13 @@ export function GraphView() {
               memory={selected}
               relatedCount={relatedCount}
               onClose={() => setSelectedId(null)}
+              onViewJson={() => setJsonMemoryId(selected.id)}
             />
           )}
         </AnimatePresence>
       </div>
+
+      <MemoryJsonModal memoryId={jsonMemoryId} onClose={() => setJsonMemoryId(null)} />
 
       <p className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 text-[11px] text-white/30">
         Drag nodes · Click to inspect · Connections show memory relationships
@@ -102,10 +108,12 @@ function GraphDetailPanel({
   memory,
   relatedCount,
   onClose,
+  onViewJson,
 }: {
   memory: GraphMemory;
   relatedCount: number;
   onClose: () => void;
+  onViewJson: () => void;
 }) {
   const meta = getMemoryTypeMeta(memory.type);
   const Icon = meta.icon;
@@ -155,9 +163,9 @@ function GraphDetailPanel({
           </div>
 
           <h3 className="text-[15px] font-semibold leading-snug text-white">{memory.title}</h3>
-          <p className="mt-2 line-clamp-5 text-[12px] leading-relaxed text-white/55">
-            {memory.content}
-          </p>
+          <div className="mt-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+            <MemoryContent content={memory.content} variant="full" />
+          </div>
 
           {memory.tags.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -189,6 +197,15 @@ function GraphDetailPanel({
               />
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={onViewJson}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-2 text-[12px] font-medium text-white/60 transition hover:border-[#36FDFD]/40 hover:text-[#36FDFD]"
+          >
+            <Braces className="size-3.5" />
+            View JSON
+          </button>
         </div>
       </div>
     </motion.aside>

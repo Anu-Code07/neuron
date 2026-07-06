@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  Braces,
   Loader2,
   Network,
   Search,
@@ -14,12 +15,15 @@ import { cn } from '@/lib/utils';
 import { useMemoriesList, type GraphMemory } from '@/lib/hooks/use-knowledge-graph';
 import { getMemoryTypeMeta } from '@/lib/memory-theme';
 import { useViewMode } from '@/lib/view-mode';
+import { MemoryContent } from '@/components/ui/memory-content';
+import { MemoryJsonModal } from '@/components/ui/memory-json-modal';
 
 export function MemoriesView() {
   const { data, isLoading, refetch } = useMemoriesList();
   const { setViewMode } = useViewMode();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [jsonMemoryId, setJsonMemoryId] = useState<string | null>(null);
 
   const memories = data ?? [];
 
@@ -164,12 +168,15 @@ export function MemoriesView() {
                   index={i}
                   onDelete={() => refetch()}
                   onViewGraph={() => setViewMode('graph')}
+                  onViewJson={() => setJsonMemoryId(m.id)}
                 />
               ))}
             </AnimatePresence>
           </motion.div>
         )}
       </div>
+
+      <MemoryJsonModal memoryId={jsonMemoryId} onClose={() => setJsonMemoryId(null)} />
     </div>
   );
 }
@@ -207,11 +214,13 @@ function MemoryCard({
   index,
   onDelete,
   onViewGraph,
+  onViewJson,
 }: {
   memory: GraphMemory;
   index: number;
   onDelete: () => void;
   onViewGraph: () => void;
+  onViewJson: () => void;
 }) {
   const meta = getMemoryTypeMeta(memory.type);
   const Icon = meta.icon;
@@ -279,10 +288,12 @@ function MemoryCard({
           </div>
         </div>
 
-        <h3 className="text-[15px] font-semibold leading-snug text-white">{memory.title}</h3>
-        <p className="mt-2 line-clamp-4 text-[13px] leading-relaxed text-white/50">
-          {memory.content}
-        </p>
+        <h3 className="text-[15px] font-semibold leading-snug tracking-tight text-white">
+          {memory.title}
+        </h3>
+        <div className="mt-2.5">
+          <MemoryContent content={memory.content} variant="preview" />
+        </div>
 
         {memory.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -302,9 +313,20 @@ function MemoryCard({
           <MetricBar label="Importance" value={memory.importance} color="#36FDFD" />
         </div>
 
-        <div className="mt-3 flex items-center justify-between text-[11px] text-white/35">
-          <span className="capitalize">{memory.layer} layer</span>
-          <span>{new Date(memory.updated_at).toLocaleDateString()}</span>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-[11px] text-white/35">
+            <span className="capitalize">{memory.layer} layer</span>
+            <span>·</span>
+            <span>{new Date(memory.updated_at).toLocaleDateString()}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onViewJson}
+            className="flex items-center gap-1 rounded-lg bg-white/[0.04] px-2 py-1 text-[10px] font-medium text-white/50 ring-1 ring-white/[0.08] transition hover:bg-white/[0.08] hover:text-[#36FDFD]"
+          >
+            <Braces className="size-3" />
+            View JSON
+          </button>
         </div>
       </div>
     </motion.article>
