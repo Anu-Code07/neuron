@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@neuron/supabase';
 import { createClient } from '@/lib/supabase/server';
 import { generateApiKey } from '@/lib/auth/api-key';
+import { resolveProjectForUser } from '@/lib/auth/resolve-project';
 
 const KEY_FIELDS = 'id, name, key_prefix, project_id, last_used_at, created_at';
 
@@ -48,11 +49,23 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { projectId, regenerate = false } = await request.json();
-  if (!projectId) return NextResponse.json({ error: 'projectId required' }, { status: 400 });
+  const { projectId: requestedProjectId, regenerate = false } = await request.json();
 
   const service = createServiceClient();
   const existing = await getExistingKeyForUser(service, user.id);
+
+  let resolvedProjectId: string;
+  try {
+    resolvedProjectId = await resolveProjectForUser(service, user.id, {
+      requestedId: requestedProjectId,
+      existingKeyProjectId: existing?.project_id,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Could not resolve project' },
+      { status: 500 },
+    );
+  }
 
   if (existing && !regenerate) {
     return NextResponse.json(
@@ -72,7 +85,7 @@ export async function POST(request: Request) {
   const { key, hash, prefix } = generateApiKey();
 
   const { error } = await service.from('api_keys').insert({
-    project_id: projectId,
+    project_id: resolvedProjectId,
     name: 'Personal MCP key',
     key_hash: hash,
     key_prefix: prefix,
@@ -86,6 +99,12 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+    if (error.code === '23503') {
+      return NextResponse.json(
+        { error: 'Project not found. Try again — a workspace will be created automatically.' },
+        { status: 400 },
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -93,6 +112,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     key,
     key_prefix: prefix,
+    project_id: resolvedProjectId,
     api_url: apiUrl,
     message: 'Copy this key now — it will not be shown again.',
   });

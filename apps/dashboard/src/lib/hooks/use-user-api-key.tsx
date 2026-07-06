@@ -23,7 +23,6 @@ type UserApiKeyContextValue = {
   loading: boolean;
   busy: boolean;
   error: string | null;
-  projectId: string;
   generate: () => Promise<string | null>;
   regenerate: () => Promise<string | null>;
   reload: () => Promise<void>;
@@ -40,7 +39,7 @@ function writeSessionKey(key: string) {
   sessionStorage.setItem(SESSION_KEY, key);
 }
 
-function useUserApiKeyState(projectId = DEFAULT_PROJECT): UserApiKeyContextValue {
+function useUserApiKeyState(): UserApiKeyContextValue {
   const [meta, setMeta] = useState<UserApiKeyMeta | null>(null);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,17 +69,16 @@ function useUserApiKeyState(projectId = DEFAULT_PROJECT): UserApiKeyContextValue
 
   const createOrRegenerate = useCallback(
     async (regenerate = false) => {
-      if (!projectId) {
-        setError('Project ID is not configured');
-        return null;
-      }
       setBusy(true);
       setError(null);
       try {
+        const body: { regenerate: boolean; projectId?: string } = { regenerate };
+        if (DEFAULT_PROJECT) body.projectId = DEFAULT_PROJECT;
+
         const res = await fetch('/api/keys', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectId, regenerate }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Could not create API key');
@@ -95,7 +93,7 @@ function useUserApiKeyState(projectId = DEFAULT_PROJECT): UserApiKeyContextValue
         setBusy(false);
       }
     },
-    [projectId, load],
+    [load],
   );
 
   const displayKey = revealedKey ?? (meta ? `${meta.key_prefix}${'•'.repeat(28)}` : null);
@@ -108,7 +106,6 @@ function useUserApiKeyState(projectId = DEFAULT_PROJECT): UserApiKeyContextValue
     loading,
     busy,
     error,
-    projectId,
     generate: () => createOrRegenerate(false),
     regenerate: () => createOrRegenerate(true),
     reload: load,
@@ -117,12 +114,10 @@ function useUserApiKeyState(projectId = DEFAULT_PROJECT): UserApiKeyContextValue
 
 export function UserApiKeyProvider({
   children,
-  projectId = DEFAULT_PROJECT,
 }: {
   children: ReactNode;
-  projectId?: string;
 }) {
-  const value = useUserApiKeyState(projectId);
+  const value = useUserApiKeyState();
   return <UserApiKeyContext.Provider value={value}>{children}</UserApiKeyContext.Provider>;
 }
 

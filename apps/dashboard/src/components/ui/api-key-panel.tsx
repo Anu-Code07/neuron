@@ -28,13 +28,15 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
     loading,
     busy,
     error,
-    projectId,
     generate,
     regenerate,
   } = useUserApiKey();
 
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState<'key' | 'install' | 'interactive' | null>(null);
+  const [copyHint, setCopyHint] = useState<string | null>(null);
+
+  const canCopyKey = !!revealedKey;
 
   const masked = useMemo(() => {
     if (!displayKey) return '';
@@ -54,7 +56,7 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
     const key = await generate();
     if (key) {
       setShowKey(true);
-      await copy('install', getInstallCommandForKey(key));
+      await copy('key', key);
     }
   }
 
@@ -62,8 +64,17 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
     const key = await regenerate();
     if (key) {
       setShowKey(true);
-      await copy('install', getInstallCommandForKey(key));
+      await copy('key', key);
     }
+  }
+
+  function handleCopyKey() {
+    if (revealedKey) {
+      void copy('key', revealedKey);
+      return;
+    }
+    setCopyHint('Full key unavailable — click Regenerate to get a new one you can copy.');
+    setTimeout(() => setCopyHint(null), 3500);
   }
 
   const installCmd = revealedKey ? getInstallCommandForKey(revealedKey) : null;
@@ -108,12 +119,6 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
           </p>
         )}
 
-        {!projectId && (
-          <p className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[13px] text-amber-200">
-            Set <code className="font-mono text-[12px]">NEXT_PUBLIC_NEURON_PROJECT_ID</code> to enable key generation.
-          </p>
-        )}
-
         <div className="mt-5">
           <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">
             NEURON_API_KEY
@@ -126,13 +131,15 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
               {hasKey && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (revealedKey) copy('key', revealedKey);
-                  }}
-                  disabled={!revealedKey}
-                  className="shrink-0 rounded-lg p-2 text-white/50 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  onClick={handleCopyKey}
+                  className={cn(
+                    'shrink-0 rounded-lg p-2 transition',
+                    canCopyKey
+                      ? 'text-white/50 hover:bg-white/5 hover:text-white'
+                      : 'text-white/25 hover:bg-white/[0.03] hover:text-white/40',
+                  )}
                   aria-label="Copy API key"
-                  title={revealedKey ? 'Copy API key' : 'Regenerate to copy the full key'}
+                  title={canCopyKey ? 'Copy API key' : 'Regenerate to copy the full key'}
                 >
                   {copied === 'key' ? (
                     <Check className="size-4 text-emerald-400" />
@@ -169,7 +176,7 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
                 <button
                   type="button"
                   onClick={handleRegenerate}
-                  disabled={busy || !projectId}
+                  disabled={busy}
                   className="sketch-pill flex items-center gap-1.5 bg-[#4BA0FA] px-4 py-2.5 text-[13px] font-semibold text-white disabled:opacity-50"
                 >
                   <RefreshCw className={cn('size-3.5', busy && 'animate-spin')} />
@@ -179,7 +186,7 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
                 <button
                   type="button"
                   onClick={handleGenerate}
-                  disabled={busy || loading || !projectId}
+                  disabled={busy || loading}
                   className="sketch-pill flex items-center gap-1.5 bg-[#4BA0FA] px-5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-50"
                 >
                   <KeyRound className="size-3.5" />
@@ -190,12 +197,20 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
           </div>
         </div>
 
+        {copyHint && (
+          <p className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[12px] text-amber-200">
+            {copyHint}
+          </p>
+        )}
+
         {revealedKey && (
           <div className="mt-4 rounded-xl border border-[#4BA0FA]/25 bg-[#4BA0FA]/8 px-4 py-3">
             <p className="text-[12px] font-medium text-[#4BA0FA]">
-              {copied === 'install'
-                ? 'Install command copied — paste in Terminal, then restart your editor.'
-                : 'Full key visible this session — use Copy key or Copy command before you leave.'}
+              {copied === 'key'
+                ? 'API key copied — use the copy icon in the input or Copy command for install.'
+                : copied === 'install'
+                  ? 'Install command copied — paste in Terminal, then restart your editor.'
+                  : 'Full key visible this session — use the copy icon in the input before you leave.'}
             </p>
           </div>
         )}
