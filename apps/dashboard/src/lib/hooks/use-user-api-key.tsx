@@ -2,9 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { buildMcpInstallCommand } from '@/lib/mcp-install';
+import { useActiveProject } from '@/lib/hooks/use-active-project';
 
 const SESSION_KEY = 'neuron_api_key_reveal';
-const DEFAULT_PROJECT = process.env.NEXT_PUBLIC_NEURON_PROJECT_ID ?? '';
 
 export type UserApiKeyMeta = {
   id: string;
@@ -31,16 +31,17 @@ type UserApiKeyContextValue = {
 
 const UserApiKeyContext = createContext<UserApiKeyContextValue | null>(null);
 
-function readSessionKey(): string | null {
-  if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem(SESSION_KEY);
+function readSessionKey(projectId: string | null): string | null {
+  if (typeof window === 'undefined' || !projectId) return null;
+  return sessionStorage.getItem(`${SESSION_KEY}:${projectId}`);
 }
 
-function writeSessionKey(key: string) {
-  sessionStorage.setItem(SESSION_KEY, key);
+function writeSessionKey(projectId: string, key: string) {
+  sessionStorage.setItem(`${SESSION_KEY}:${projectId}`, key);
 }
 
 function useUserApiKeyState(): UserApiKeyContextValue {
+  const { activeProjectId } = useActiveProject();
   const [meta, setMeta] = useState<UserApiKeyMeta | null>(null);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,42 +49,48 @@ function useUserApiKeyState(): UserApiKeyContextValue {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!activeProjectId) {
+      setMeta(null);
+      setRevealedKey(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/keys?mine=1');
+      const res = await fetch(`/api/keys?mine=1&projectId=${activeProjectId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Could not load API key');
       setMeta(data.key ?? null);
-      const cached = readSessionKey();
+      const cached = readSessionKey(activeProjectId);
       if (cached?.startsWith('nrn_')) setRevealedKey(cached);
+      else setRevealedKey(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load API key');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeProjectId]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const createOrRegenerate = useCallback(
     async (regenerate = false) => {
+      if (!activeProjectId) return null;
       setBusy(true);
       setError(null);
       try {
-        const body: { regenerate: boolean; projectId?: string } = { regenerate };
-        if (DEFAULT_PROJECT) body.projectId = DEFAULT_PROJECT;
-
         const res = await fetch('/api/keys', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ projectId: activeProjectId, regenerate }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Could not create API key');
-        writeSessionKey(data.key);
+        writeSessionKey(activeProjectId, data.key);
         setRevealedKey(data.key);
         await load();
         return data.key as string;
@@ -94,7 +101,7 @@ function useUserApiKeyState(): UserApiKeyContextValue {
         setBusy(false);
       }
     },
-    [load],
+    [activeProjectId, load],
   );
 
   const displayKey = revealedKey ?? (meta ? `${meta.key_prefix}${'•'.repeat(28)}` : null);
@@ -113,11 +120,7 @@ function useUserApiKeyState(): UserApiKeyContextValue {
   };
 }
 
-export function UserApiKeyProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function UserApiKeyProvider({ children }: { children: ReactNode }) {
   const value = useUserApiKeyState();
   return <UserApiKeyContext.Provider value={value}>{children}</UserApiKeyContext.Provider>;
 }
@@ -134,6 +137,6 @@ export async function copyText(text: string) {
   await navigator.clipboard.writeText(text);
 }
 
-export function getInstallCommandForKey(key: string) {
-  return buildMcpInstallCommand(key);
+export function getInstallCommandForKey(key: string, repoSlug?: string) {
+  return buildMcpInstallCommand(key, repoSlug);
 }

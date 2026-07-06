@@ -3,6 +3,8 @@
 import { NeuronMark } from '@/components/ui/logo';
 import { cn } from '@/lib/utils';
 import { useViewMode, type ViewMode } from '@/lib/view-mode';
+import { ProjectSwitcher } from '@/components/ui/project-switcher';
+import { useActiveProject } from '@/lib/hooks/use-active-project';
 import {
   Home,
   LayoutGrid,
@@ -19,7 +21,6 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
 interface AppHeaderProps {
-  projectName?: string;
   onAddMemory?: () => void;
   onOpenSearch?: () => void;
 }
@@ -33,8 +34,9 @@ const tabs: { id: ViewMode | 'integrations'; label: string; icon: typeof Home }[
   { id: 'mcp', label: 'MCP', icon: Code2 },
 ];
 
-export function AppHeader({ projectName = 'My Project', onAddMemory, onOpenSearch }: AppHeaderProps) {
+export function AppHeader({ onAddMemory, onOpenSearch }: AppHeaderProps) {
   const { viewMode, setViewMode } = useViewMode();
+  const { activeProject } = useActiveProject();
   const router = useRouter();
 
   async function signOut() {
@@ -52,13 +54,16 @@ export function AppHeader({ projectName = 'My Project', onAddMemory, onOpenSearc
         >
           <NeuronMark className="h-7 w-7" />
           <div className="ml-0.5 hidden flex-col items-start sm:flex">
-            <p className="max-w-[16ch] truncate text-[10px] leading-tight text-[#6B6B6B] sm:text-[11px]">
-              {projectName}
-            </p>
+            <ProjectSwitcher />
             <div className="flex items-baseline gap-1.5">
               <p className="-mt-0.5 text-sm font-semibold leading-none text-white/90 sm:text-lg">
                 neuron
               </p>
+              {activeProject && (
+                <p className="hidden text-[10px] text-white/30 lg:inline">
+                  {activeProject.slug}
+                </p>
+              )}
             </div>
           </div>
         </button>

@@ -21,6 +21,17 @@ export function createProjectRepository(client: NeuronSupabaseClient): ProjectRe
         description: data.description,
       };
     },
+
+    async findBySlug(slug) {
+      const { data, error } = await client
+        .from('projects')
+        .select('id, name, slug')
+        .eq('slug', slug)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+      return data ?? null;
+    },
   };
 }
 

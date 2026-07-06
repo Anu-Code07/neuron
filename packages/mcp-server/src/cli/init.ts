@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import { normalizeRepoTag, getAgentInstructions } from '@neuron/shared';
 
 /** Published npm package — update when @neuron org is claimed */
 export const NPX_PACKAGE = '@anuraghq/neuron-mcp-server';
@@ -16,6 +17,7 @@ interface InitOptions {
   apiKey?: string;
   apiUrl?: string;
   interactive?: boolean;
+  repo?: string;
   /** @deprecated Direct mode — for local dev only */
   supabaseUrl?: string;
   serviceRoleKey?: string;
@@ -71,6 +73,7 @@ function parseArgs(argv: string[]): InitOptions {
     if (arg === '--claude') opts.claude = true;
     if (arg === '--api-key') opts.apiKey = argv[++i];
     if (arg === '--api-url') opts.apiUrl = argv[++i];
+    if (arg === '--repo') opts.repo = argv[++i];
     if (arg === '--supabase-url') opts.supabaseUrl = argv[++i];
     if (arg === '--service-key') opts.serviceRoleKey = argv[++i];
     if (arg === '--project-id') opts.projectId = argv[++i];
@@ -117,12 +120,23 @@ async function resolveApiKey(opts: InitOptions): Promise<string | undefined> {
   return undefined;
 }
 
-function buildHostedConfig(apiKey: string, apiUrl?: string, mcpClient?: string) {
+function resolveRepoTag(opts: InitOptions): string | undefined {
+  const fromFlag = opts.repo ?? process.env.NEURON_REPO;
+  if (fromFlag) return normalizeRepoTag(fromFlag);
+  if (opts.project) return normalizeRepoTag(basename(process.cwd()));
+  return undefined;
+}
+
+function buildHostedConfig(apiKey: string, apiUrl?: string, mcpClient?: string, opts?: InitOptions) {
   const env: Record<string, string> = {
     NEURON_API_KEY: apiKey,
     NEURON_API_URL: apiUrl ?? process.env.NEURON_API_URL ?? DEFAULT_API_URL,
   };
   if (mcpClient) env.NEURON_MCP_CLIENT = mcpClient;
+  const repoTag = opts ? resolveRepoTag(opts) : undefined;
+  if (repoTag) env.NEURON_REPO = repoTag.replace(/^repo:/, '');
+  const projectId = opts?.projectId ?? process.env.NEURON_PROJECT_ID;
+  if (projectId) env.NEURON_PROJECT_ID = projectId;
   return {
     command: 'npx',
     args: ['-y', NPX_PACKAGE],
@@ -160,6 +174,21 @@ function buildDirectConfig(opts: InitOptions) {
   };
 }
 
+function writeCursorNeuronRule(repoRoot: string) {
+  const rulesDir = join(repoRoot, '.cursor', 'rules');
+  const rulePath = join(rulesDir, 'neuron-mcp.mdc');
+  mkdirSync(rulesDir, { recursive: true });
+  const body = `---
+description: Use Neuron MCP cheatsheet at the start of every task when neuron is connected
+alwaysApply: true
+---
+
+${getAgentInstructions()}
+`;
+  writeFileSync(rulePath, body);
+  return rulePath;
+}
+
 function mergeMcpJson(existing: Record<string, unknown>, neuronConfig: unknown) {
   const servers = (existing.mcpServers as Record<string, unknown>) ?? {};
   return { ...existing, mcpServers: { ...servers, neuron: neuronConfig } };
@@ -193,7 +222,7 @@ export async function runInit(argv: string[]): Promise<void> {
 
   if (opts.stdout) {
     const neuronConfig = apiKey
-      ? buildHostedConfig(apiKey, opts.apiUrl)
+      ? buildHostedConfig(apiKey, opts.apiUrl, undefined, opts)
       : await buildDirectConfig(opts);
     console.log(JSON.stringify({ mcpServers: { neuron: neuronConfig } }, null, 2));
     return;
@@ -206,7 +235,7 @@ export async function runInit(argv: string[]): Promise<void> {
 
   for (const { label, path } of targets) {
     const neuronConfig = apiKey
-      ? buildHostedConfig(apiKey, opts.apiUrl, mcpClientForTarget(label))
+      ? buildHostedConfig(apiKey, opts.apiUrl, mcpClientForTarget(label), opts)
       : hasDirect
         ? buildDirectConfig(opts)
         : (() => { throw new Error(missingKeyMessage()); })();
@@ -214,8 +243,14 @@ export async function runInit(argv: string[]): Promise<void> {
     console.log(`✓ ${label} → ${path}`);
   }
 
+  if (opts.project) {
+    const rulePath = writeCursorNeuronRule(process.cwd());
+    console.log(`✓ Cursor rule → ${rulePath}`);
+  }
+
   console.log('\nRestart your MCP client(s), then confirm "neuron" is connected.');
   console.log('  • Cursor: Settings → MCP');
   console.log('  • Claude Desktop: quit fully and reopen the app');
-  console.log('\nFlags: --cursor (Cursor only) · --claude (Claude only) · default installs both');
+  console.log('\nFlags: --cursor · --claude · --project (repo-local mcp.json + NEURON_REPO)');
+  console.log('       --repo <name> · default installs both Cursor + Claude');
 }

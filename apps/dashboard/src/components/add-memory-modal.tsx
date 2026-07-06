@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { ContextLayer, MemoryType } from '@neuron/shared';
+import { useActiveProject } from '@/lib/hooks/use-active-project';
 import { Loader2, X } from 'lucide-react';
 
 interface AddMemoryModalProps {
@@ -11,6 +12,7 @@ interface AddMemoryModalProps {
 }
 
 export function AddMemoryModal({ open, onClose }: AddMemoryModalProps) {
+  const { activeProjectId } = useActiveProject();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<string>(MemoryType.Fact);
@@ -20,12 +22,12 @@ export function AddMemoryModal({ open, onClose }: AddMemoryModalProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!activeProjectId) return;
     setLoading(true);
     const supabase = createClient();
-    const projectId = process.env.NEXT_PUBLIC_NEURON_PROJECT_ID;
 
     const { error } = await supabase.from('memories').insert({
-      project_id: projectId ?? '00000000-0000-0000-0000-000000000001',
+      project_id: activeProjectId,
       type,
       layer: ContextLayer.Project,
       title,

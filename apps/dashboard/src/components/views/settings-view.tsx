@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 import { ApiKeyPanel } from '@/components/ui/api-key-panel';
-import { UserApiKeyProvider } from '@/lib/hooks/use-user-api-key';
+import { WorkspacePanel } from '@/components/ui/workspace-panel';
 
 export function SettingsView() {
   const [email, setEmail] = useState<string | null>(null);
@@ -24,9 +24,9 @@ export function SettingsView() {
           <SettingsRow label="Email" value={email ?? '—'} />
         </SettingsSection>
 
-        <UserApiKeyProvider>
-          <ApiKeyPanel compact />
-        </UserApiKeyProvider>
+        <ApiKeyPanel compact />
+
+        <WorkspacePanel />
       </div>
     </div>
   );

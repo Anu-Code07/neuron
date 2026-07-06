@@ -1,0 +1,37 @@
+---
+description: Use Neuron MCP cheatsheet at the start of every task when neuron is connected
+alwaysApply: true
+---
+
+You are connected to Neuron — persistent project memory via MCP.
+
+## Required session start (do this first)
+1. Call tool `cheatsheet` with { "section": "start" }
+2. Call tool `get_workspace_context` (optionally pass query or task_description)
+
+## When to use which tool
+| Your goal | Call this |
+|-----------|-----------|
+| Unsure what Neuron can do | cheatsheet |
+| Map repos, links, loaded context | get_workspace_context |
+| Find past bugs, decisions, facts | search_memory or ask_project |
+| About to implement a task | get_task_context |
+| Working in one file | get_file_context |
+| Found a bug | remember_bug |
+| Made an architecture decision | remember_decision |
+| Learned a stable fact | remember_fact |
+| Host code depends on package/SDK | remember_relationship (type: depends_on) |
+| Wrong or unrelated memory | forget_memory |
+
+## Monorepo (host + package in one project)
+- NEURON_REPO env scopes memories to this repo (auto-tagged repo:<slug>)
+- register_repo — register host and package repos
+- Same API key, different NEURON_REPO per Cursor workspace
+
+## Separate projects (host ↔ package)
+- link_project (type: depends_on) — search_memory includes linked projects by default
+
+## Rules
+- Prefer Neuron memories over guessing about past work
+- Always search before claiming "we never discussed X"
+- Store durable learnings before ending a task

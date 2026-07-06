@@ -104,6 +104,10 @@ export function createMemoryRepository(client: NeuronSupabaseClient): MemoryRepo
       if (filters?.types?.length) query = query.in('type', filters.types);
       if (filters?.status) query = query.eq('status', filters.status);
       if (filters?.layer) query = query.eq('layer', contextLayerToDb(filters.layer));
+      if (filters?.requiredRepoTag) {
+        query = query.contains('tags', [filters.requiredRepoTag]);
+      }
+      if (filters?.tags?.length) query = query.overlaps('tags', filters.tags);
       if (filters?.limit) query = query.limit(filters.limit);
       if (filters?.offset) query = query.range(filters.offset, filters.offset + (filters.limit ?? 50) - 1);
 

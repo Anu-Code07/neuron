@@ -3,6 +3,8 @@ import { z } from 'zod';
 export type RegisterToolOptions = {
   /** Resolved from NEURON_API_KEY — makes project_id optional on tool inputs */
   defaultProjectId?: string;
+  /** From NEURON_REPO — auto-tag writes and filter reads */
+  defaultRepoTag?: string;
 };
 
 export function isHostedRegistration(options?: RegisterToolOptions): boolean {

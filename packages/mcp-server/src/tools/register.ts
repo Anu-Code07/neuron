@@ -1,5 +1,5 @@
 import type { ContextEngine } from '@neuron/context-engine';
-import { ContextLayer, MemoryType } from '@neuron/shared';
+import { ContextLayer, MemoryType, ProjectLinkType, mergeMemoryTags, resolveReadTags } from '@neuron/shared';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import {
@@ -26,6 +26,14 @@ import {
   CondenseMemoriesSchema,
   SuggestRelationshipsSchema,
   ExtractFromDiffSchema,
+  GetWorkspaceContextSchema,
+  ListReposSchema,
+  RegisterRepoSchema,
+  DeleteRepoSchema,
+  ListProjectLinksSchema,
+  LinkProjectSchema,
+  UnlinkProjectSchema,
+  CheatsheetSchema,
 } from './schemas.js';
 import {
   type RegisterToolOptions,
@@ -35,9 +43,15 @@ import {
   toolShape,
   withOptionalProjectId,
 } from './hosted-args.js';
+import { getCheatsheet, getAgentInstructions } from '@neuron/shared';
 
 function textResult(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+}
+
+function readFilters(explicitTags?: string[], repoTag?: string) {
+  const { requiredRepoTag, overlapTags } = resolveReadTags(explicitTags, repoTag);
+  return { requiredRepoTag, tags: overlapTags };
 }
 
 function makeRememberHandler(
@@ -45,6 +59,7 @@ function makeRememberHandler(
   type: MemoryType,
   hosted: boolean,
   defaultProjectId?: string,
+  defaultRepoTag?: string,
 ) {
   return async (args: Record<string, unknown>) => {
     const schema = withOptionalProjectId(RememberSchema, hosted);
@@ -56,7 +71,7 @@ function makeRememberHandler(
       content: parsed.content,
       confidence: parsed.confidence,
       importance: parsed.importance,
-      tags: parsed.tags,
+      tags: mergeMemoryTags(parsed.tags, defaultRepoTag),
       metadata: parsed.metadata,
       layer: ContextLayer.Project,
     });
@@ -71,12 +86,49 @@ export function registerTools(
 ): void {
   const hosted = isHostedRegistration(options);
   const defaultProjectId = options?.defaultProjectId;
+  const defaultRepoTag = options?.defaultRepoTag;
+
+  server.registerTool(
+    'cheatsheet',
+    {
+      title: 'START HERE — Neuron tool guide',
+      description:
+        'CALL THIS FIRST before any other Neuron tool. Returns agent instructions, when-to-use for every tool, workflows, NEURON_REPO scoping, and a decision tree. Use section "start" for essentials, "all" for full reference.',
+      inputSchema: CheatsheetSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => {
+      const parsed = CheatsheetSchema.parse(args);
+      const sheet = getCheatsheet(parsed.section ?? 'all');
+      return textResult({
+        ...sheet,
+        reminder: 'Next: call get_workspace_context before other Neuron tools.',
+      });
+    },
+  );
+
+  server.registerPrompt(
+    'neuron_session_start',
+    {
+      title: 'Start Neuron session',
+      description:
+        'Run at the beginning of a task — loads Neuron agent instructions (same as cheatsheet section start)',
+    },
+    async () => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: { type: 'text' as const, text: getAgentInstructions() },
+        },
+      ],
+    }),
+  );
 
   server.tool(
     'remember_fact',
     'Store a factual piece of project knowledge',
     toolShape(RememberSchema, hosted),
-    makeRememberHandler(engine, MemoryType.Fact, hosted, defaultProjectId),
+    makeRememberHandler(engine, MemoryType.Fact, hosted, defaultProjectId, defaultRepoTag),
   );
 
   server.tool(
@@ -101,7 +153,7 @@ export function registerTools(
         title: parsed.title,
         content: parsed.content,
         confidence: parsed.confidence,
-        tags: parsed.tags,
+        tags: mergeMemoryTags(parsed.tags, defaultRepoTag),
         metadata: {
           chosen: parsed.chosen,
           alternatives: parsed.alternatives,
@@ -117,7 +169,7 @@ export function registerTools(
     'remember_pattern',
     'Store a coding pattern or convention',
     toolShape(RememberSchema, hosted),
-    makeRememberHandler(engine, MemoryType.Pattern, hosted, defaultProjectId),
+    makeRememberHandler(engine, MemoryType.Pattern, hosted, defaultProjectId, defaultRepoTag),
   );
 
   server.tool(
@@ -140,7 +192,7 @@ export function registerTools(
         type: MemoryType.Bug,
         title: parsed.title,
         content: parsed.content,
-        tags: parsed.tags,
+        tags: mergeMemoryTags(parsed.tags, defaultRepoTag),
         metadata: {
           severity: parsed.severity,
           status: parsed.status,
@@ -172,7 +224,7 @@ export function registerTools(
         type: MemoryType.Component,
         title: parsed.title,
         content: parsed.content,
-        tags: parsed.tags,
+        tags: mergeMemoryTags(parsed.tags, defaultRepoTag),
         metadata: {
           filePath: parsed.file_path,
           language: parsed.language,
@@ -205,7 +257,7 @@ export function registerTools(
         type: MemoryType.Api,
         title: parsed.title,
         content: parsed.content,
-        tags: parsed.tags,
+        tags: mergeMemoryTags(parsed.tags, defaultRepoTag),
         metadata: {
           method: parsed.method,
           path: parsed.path,
@@ -222,21 +274,21 @@ export function registerTools(
     'remember_task',
     'Store a task with goals and acceptance criteria',
     toolShape(RememberSchema, hosted),
-    makeRememberHandler(engine, MemoryType.Task, hosted, defaultProjectId),
+    makeRememberHandler(engine, MemoryType.Task, hosted, defaultProjectId, defaultRepoTag),
   );
 
   server.tool(
     'remember_architecture',
     'Store architectural knowledge about the project',
     toolShape(RememberSchema, hosted),
-    makeRememberHandler(engine, MemoryType.Architecture, hosted, defaultProjectId),
+    makeRememberHandler(engine, MemoryType.Architecture, hosted, defaultProjectId, defaultRepoTag),
   );
 
   server.tool(
     'remember_database',
     'Store database schema or query knowledge',
     toolShape(RememberSchema, hosted),
-    makeRememberHandler(engine, MemoryType.Database, hosted, defaultProjectId),
+    makeRememberHandler(engine, MemoryType.Database, hosted, defaultProjectId, defaultRepoTag),
   );
 
   server.tool(
@@ -264,32 +316,36 @@ export function registerTools(
     'remember_note',
     'Store a general note',
     toolShape(RememberSchema, hosted),
-    makeRememberHandler(engine, MemoryType.Note, hosted, defaultProjectId),
+    makeRememberHandler(engine, MemoryType.Note, hosted, defaultProjectId, defaultRepoTag),
   );
 
   server.tool(
     'remember_file',
     'Store knowledge about a specific file in the codebase',
     toolShape(RememberSchema, hosted),
-    makeRememberHandler(engine, MemoryType.File, hosted, defaultProjectId),
+    makeRememberHandler(engine, MemoryType.File, hosted, defaultProjectId, defaultRepoTag),
   );
 
   server.tool(
     'remember_conversation',
     'Extract and store knowledge from a conversation (raw chat is not stored)',
     toolShape(RememberSchema, hosted),
-    makeRememberHandler(engine, MemoryType.Conversation, hosted, defaultProjectId),
+    makeRememberHandler(engine, MemoryType.Conversation, hosted, defaultProjectId, defaultRepoTag),
   );
 
   server.tool(
     'search_memory',
-    'Hybrid search across project memories (vector + keyword + graph)',
+    'Hybrid search across project memories — includes linked projects (host↔package) by default',
     toolShape(SearchMemorySchema, hosted),
     async (args) => {
       const schema = withOptionalProjectId(SearchMemorySchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
+      const filters = readFilters(parsed.tags, defaultRepoTag);
       const results = await engine.searchMemory(parsed.project_id, parsed.query, {
         types: parsed.types,
+        tags: filters.tags,
+        requiredRepoTag: filters.requiredRepoTag,
+        includeLinkedProjects: parsed.include_linked_projects ?? true,
         limit: parsed.limit,
       });
       return textResult(results);
@@ -298,20 +354,52 @@ export function registerTools(
 
   server.tool(
     'get_project_context',
-    'Assemble an AI-ready context packet for the project — the core Context Engine output',
+    'Assemble an AI-ready context packet — includes linked project context by default',
     toolShape(GetProjectContextSchema, hosted),
     async (args) => {
       const schema = withOptionalProjectId(GetProjectContextSchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
-      const packet = await engine.getProjectContext({
+      const filters = readFilters(parsed.tags, defaultRepoTag);
+      const workspace = await engine.getWorkspaceContext({
         projectId: parsed.project_id,
         query: parsed.query,
         taskDescription: parsed.task_description,
         openFiles: parsed.open_files,
         branchName: parsed.branch_name,
         tokenBudget: parsed.token_budget,
+        tags: filters.tags,
+        requiredRepoTag: filters.requiredRepoTag,
+        includeLinkedProjects: parsed.include_linked_projects ?? true,
       });
-      return textResult(packet);
+      return textResult({
+        ...workspace.primary,
+        workspace: workspace.scope,
+        linkedProjects: workspace.linked,
+        hints: workspace.hints,
+      });
+    },
+  );
+
+  server.tool(
+    'get_workspace_context',
+    'Full workspace map: repos, project links, repo-scoped context, and linked project highlights — best starting point',
+    toolShape(GetWorkspaceContextSchema, hosted),
+    async (args) => {
+      const schema = withOptionalProjectId(GetWorkspaceContextSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
+      const filters = readFilters(parsed.tags, defaultRepoTag);
+      const workspace = await engine.getWorkspaceContext({
+        projectId: parsed.project_id,
+        query: parsed.query,
+        taskDescription: parsed.task_description,
+        openFiles: parsed.open_files,
+        branchName: parsed.branch_name,
+        tokenBudget: parsed.token_budget,
+        tags: filters.tags,
+        requiredRepoTag: filters.requiredRepoTag,
+        includeLinkedProjects: parsed.include_linked_projects ?? true,
+      });
+      return textResult(workspace);
     },
   );
 
@@ -322,12 +410,15 @@ export function registerTools(
     async (args) => {
       const schema = withOptionalProjectId(GetTaskContextSchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
+      const filters = readFilters(parsed.tags, defaultRepoTag);
       const packet = await engine.getProjectContext({
         projectId: parsed.project_id,
         taskDescription: parsed.task_description,
         openFiles: parsed.open_files,
         tokenBudget: parsed.token_budget,
         layerFilter: [ContextLayer.Task, ContextLayer.Branch, ContextLayer.Project],
+        tags: filters.tags,
+        requiredRepoTag: filters.requiredRepoTag,
       });
       return textResult(packet);
     },
@@ -340,11 +431,14 @@ export function registerTools(
     async (args) => {
       const schema = withOptionalProjectId(GetFileContextSchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
+      const filters = readFilters(undefined, defaultRepoTag);
       const packet = await engine.getProjectContext({
         projectId: parsed.project_id,
         openFiles: [parsed.file_path],
         query: parsed.file_path,
         tokenBudget: parsed.token_budget,
+        tags: filters.tags,
+        requiredRepoTag: filters.requiredRepoTag,
       });
       return textResult(packet);
     },
@@ -526,6 +620,103 @@ export function registerTools(
       }
       const drafts = await engine.previewExtractFromDiff(parsed.diff);
       return textResult({ drafts });
+    },
+  );
+
+  server.tool(
+    'list_repos',
+    'List registered repositories in this project (each maps to a NEURON_REPO tag)',
+    toolShape(ListReposSchema, hosted),
+    async (args) => {
+      const schema = withOptionalProjectId(ListReposSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
+      const repos = await engine.listRepos(parsed.project_id);
+      return textResult({
+        repos,
+        activeRepo: defaultRepoTag,
+        hint: 'Set NEURON_REPO to a repo_slug when connecting MCP from that codebase.',
+      });
+    },
+  );
+
+  server.tool(
+    'register_repo',
+    'Register a repository under this project — enables NEURON_REPO scoping for host/package monorepos',
+    toolShape(RegisterRepoSchema, hosted),
+    async (args) => {
+      const schema = withOptionalProjectId(RegisterRepoSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
+      const repo = await engine.registerRepo(parsed.project_id, {
+        name: parsed.name,
+        repoSlug: parsed.repo_slug,
+        url: parsed.url,
+        defaultBranch: parsed.default_branch,
+      });
+      return textResult({ success: true, repo });
+    },
+  );
+
+  server.tool(
+    'delete_repo',
+    'Remove a registered repository from this project',
+    toolShape(DeleteRepoSchema, hosted),
+    async (args) => {
+      const parsed = DeleteRepoSchema.parse(args);
+      await engine.deleteRepo(parsed.repo_id);
+      return textResult({ success: true });
+    },
+  );
+
+  server.tool(
+    'list_project_links',
+    'List linked projects (e.g. host app depends_on payment SDK package)',
+    toolShape(ListProjectLinksSchema, hosted),
+    async (args) => {
+      const schema = withOptionalProjectId(ListProjectLinksSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
+      const links = await engine.listProjectLinks(parsed.project_id);
+      return textResult({ links });
+    },
+  );
+
+  server.tool(
+    'link_project',
+    'Connect this project to another — host depends_on package, workspace groups repos',
+    toolShape(LinkProjectSchema, hosted),
+    async (args) => {
+      const schema = withOptionalProjectId(LinkProjectSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
+
+      let targetId = parsed.target_project_id;
+      if (!targetId && parsed.target_project_slug) {
+        const target = await engine.resolveProjectBySlug(parsed.target_project_slug);
+        if (!target) {
+          throw new Error(`Project not found with slug: ${parsed.target_project_slug}`);
+        }
+        targetId = target.id;
+      }
+      if (!targetId) {
+        throw new Error('Provide target_project_id or target_project_slug');
+      }
+
+      const link = await engine.linkProject(
+        parsed.project_id,
+        targetId,
+        parsed.link_type as ProjectLinkType,
+        parsed.label,
+      );
+      return textResult({ success: true, link });
+    },
+  );
+
+  server.tool(
+    'unlink_project',
+    'Remove a link between projects',
+    toolShape(UnlinkProjectSchema, hosted),
+    async (args) => {
+      const parsed = UnlinkProjectSchema.parse(args);
+      await engine.unlinkProject(parsed.link_id);
+      return textResult({ success: true });
     },
   );
 }

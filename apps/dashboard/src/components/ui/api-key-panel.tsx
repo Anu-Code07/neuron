@@ -14,6 +14,7 @@ import {
   MCP_CLIENT_DEFS,
 } from '@/lib/mcp-clients';
 import { GlassCard, GlassCodeBlock } from '@/components/ui/glass-card';
+import { useActiveProject } from '@/lib/hooks/use-active-project';
 import { cn } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://neuron-azure.vercel.app';
@@ -36,6 +37,7 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
     generate,
     regenerate,
   } = useUserApiKey();
+  const { activeProject } = useActiveProject();
 
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState<'key' | 'install' | 'interactive' | null>(null);
@@ -82,7 +84,9 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
     setTimeout(() => setCopyHint(null), 3500);
   }
 
-  const installCmd = revealedKey ? getInstallCommandForKey(revealedKey) : null;
+  const installCmd = revealedKey
+    ? getInstallCommandForKey(revealedKey, activeProject?.slug)
+    : null;
 
   return (
     <>
@@ -258,9 +262,17 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
           </div>
         )}
 
+        {activeProject && (
+          <p className="mt-4 text-[12px] text-white/45">
+            Scoped to <strong className="text-white/70">{activeProject.name}</strong>
+            {' · '}use <code className="font-mono text-[11px]">NEURON_REPO</code> in each repo for isolation
+          </p>
+        )}
+
         {!compact && (
           <p className="mt-4 font-mono text-[11px] text-white/30">
             NEURON_API_URL={API_URL}
+            {activeProject ? ` · NEURON_PROJECT_ID=${activeProject.id}` : ''}
           </p>
         )}
       </GlassCard>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useActiveProject } from '@/lib/hooks/use-active-project';
 import { Loader2, Search, X } from 'lucide-react';
 import { memoryPreviewLine } from '@/components/ui/memory-content';
 
@@ -11,6 +12,7 @@ interface SearchModalProps {
 }
 
 export function SearchModal({ open, onClose }: SearchModalProps) {
+  const { activeProjectId } = useActiveProject();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Array<{ id: string; title: string; type: string; content: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -19,12 +21,13 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
 
   async function search(q: string) {
     setQuery(q);
-    if (q.length < 2) { setResults([]); return; }
+    if (q.length < 2 || !activeProjectId) { setResults([]); return; }
     setLoading(true);
     const supabase = createClient();
     const { data } = await supabase
       .from('memories')
       .select('id, title, type, content')
+      .eq('project_id', activeProjectId)
       .eq('status', 'active')
       .or(`title.ilike.%${q}%,content.ilike.%${q}%`)
       .limit(10);

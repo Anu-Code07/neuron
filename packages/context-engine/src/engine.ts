@@ -2,11 +2,18 @@ import {
   ContextLayer,
   MemoryStatus,
   MemoryType,
+  ProjectLinkType,
   type ContextPacket,
   type ContextQuery,
   type DecisionMemory,
+  type LinkedProjectContext,
   type Memory,
+  type ProjectLink,
+  type RegisteredRepo,
   type RememberInput,
+  type WorkspaceContextPacket,
+  type WorkspaceScope,
+  normalizeRepoTag,
 } from '@neuron/shared';
 
 import type { ContextEngineDeps } from './domain/repositories.js';
@@ -41,6 +48,16 @@ export class ContextEngine {
       confidence: input.confidence ?? 0.8,
       importance: input.importance ?? 0.5,
     });
+
+    if (input.tags?.length && this.deps.workspaceRepos) {
+      const repoTag = input.tags.find((t) => t.startsWith('repo:'));
+      if (repoTag) {
+        await this.deps.workspaceRepos.ensureRegistered(
+          input.projectId,
+          repoTag.replace(/^repo:/, ''),
+        );
+      }
+    }
 
     if (input.relationships) {
       for (const rel of input.relationships) {
@@ -87,7 +104,69 @@ export class ContextEngine {
   async searchMemory(
     projectId: string,
     query: string,
-    options?: { types?: string[]; limit?: number },
+    options?: {
+      types?: string[];
+      tags?: string[];
+      requiredRepoTag?: string;
+      includeLinkedProjects?: boolean;
+      limit?: number;
+    },
+  ) {
+    const limit = options?.limit ?? 20;
+    const primary = await this.searchProjectMemories(projectId, query, { ...options, limit });
+
+    if (options?.includeLinkedProjects === false || !this.deps.projectLinks) {
+      return primary;
+    }
+
+    const linkedIds = await this.deps.projectLinks.getLinkedProjectIds(projectId);
+    if (!linkedIds.length) return primary;
+
+    const merged = [...primary.results];
+    const perLinked = Math.max(3, Math.ceil(limit / Math.max(linkedIds.length, 1)));
+
+    for (const linkedId of linkedIds) {
+      const linked = await this.searchProjectMemories(linkedId, query, {
+        types: options?.types,
+        limit: perLinked,
+      });
+      for (const result of linked.results) {
+        merged.push({
+          ...result,
+          score: result.score * 0.85,
+          scoreBreakdown: {
+            ...result.scoreBreakdown,
+            composite: result.scoreBreakdown.composite * 0.85,
+          },
+          memory: {
+            ...result.memory,
+            metadata: {
+              ...result.memory.metadata,
+              linkedFromProjectId: linkedId,
+            },
+          },
+        });
+      }
+    }
+
+    merged.sort((a, b) => b.score - a.score);
+    return {
+      results: merged.slice(0, limit),
+      totalCount: merged.length,
+      query,
+      linkedProjectsSearched: linkedIds,
+    };
+  }
+
+  private async searchProjectMemories(
+    projectId: string,
+    query: string,
+    options?: {
+      types?: string[];
+      tags?: string[];
+      requiredRepoTag?: string;
+      limit?: number;
+    },
   ) {
     const keywords = extractKeywords(query);
     const signals = {
@@ -111,6 +190,8 @@ export class ContextEngine {
 
     const memories = await this.deps.memories.findByProject(projectId, {
       types: options?.types,
+      tags: options?.tags,
+      requiredRepoTag: options?.requiredRepoTag,
       status: MemoryStatus.Active,
       limit: 100,
     });
@@ -191,6 +272,8 @@ export class ContextEngine {
 
     const allMemories = await this.deps.memories.findByProject(query.projectId, {
       status: MemoryStatus.Active,
+      tags: query.tags,
+      requiredRepoTag: query.requiredRepoTag,
       limit: 200,
     });
 
@@ -553,5 +636,136 @@ export class ContextEngine {
     }
 
     return saved;
+  }
+
+  /** List registered repos (maps to NEURON_REPO tags) */
+  async listRepos(projectId: string): Promise<RegisteredRepo[]> {
+    if (!this.deps.workspaceRepos) return [];
+    return this.deps.workspaceRepos.listByProject(projectId);
+  }
+
+  /** Register a repo under this project for NEURON_REPO scoping */
+  async registerRepo(
+    projectId: string,
+    input: { name: string; repoSlug: string; url?: string; defaultBranch?: string },
+  ): Promise<RegisteredRepo> {
+    if (!this.deps.workspaceRepos) {
+      throw new Error('Workspace repos not configured');
+    }
+    const slug = normalizeRepoTag(input.repoSlug)?.replace(/^repo:/, '') ?? input.repoSlug;
+    return this.deps.workspaceRepos.create(projectId, { ...input, repoSlug: slug });
+  }
+
+  async deleteRepo(repoId: string): Promise<void> {
+    if (!this.deps.workspaceRepos) throw new Error('Workspace repos not configured');
+    await this.deps.workspaceRepos.delete(repoId);
+  }
+
+  /** List outgoing project links (host → package, etc.) */
+  async listProjectLinks(projectId: string): Promise<ProjectLink[]> {
+    if (!this.deps.projectLinks) return [];
+    return this.deps.projectLinks.listOutgoing(projectId);
+  }
+
+  /** Link this project to another (e.g. host depends_on package) */
+  async linkProject(
+    sourceProjectId: string,
+    targetProjectId: string,
+    linkType: ProjectLinkType,
+    label?: string,
+  ): Promise<ProjectLink> {
+    if (!this.deps.projectLinks) throw new Error('Project links not configured');
+    return this.deps.projectLinks.create(sourceProjectId, targetProjectId, linkType, label);
+  }
+
+  async unlinkProject(linkId: string): Promise<void> {
+    if (!this.deps.projectLinks) throw new Error('Project links not configured');
+    await this.deps.projectLinks.delete(linkId);
+  }
+
+  /** Resolve target project by slug for link_project */
+  async resolveProjectBySlug(slug: string) {
+    if (!this.deps.projects.findBySlug) return null;
+    return this.deps.projects.findBySlug(slug);
+  }
+
+  /** Full workspace context: repo scope + primary packet + linked project highlights */
+  async getWorkspaceContext(query: ContextQuery): Promise<WorkspaceContextPacket> {
+    const includeLinked = query.includeLinkedProjects !== false;
+
+    if (query.requiredRepoTag && this.deps.workspaceRepos) {
+      const slug = query.requiredRepoTag.replace(/^repo:/, '');
+      await this.deps.workspaceRepos.ensureRegistered(query.projectId, slug);
+    }
+
+    const [repos, links, primary] = await Promise.all([
+      this.listRepos(query.projectId),
+      this.listProjectLinks(query.projectId),
+      this.getProjectContext(query),
+    ]);
+
+    const scope: WorkspaceScope = {
+      activeRepoTag: query.requiredRepoTag,
+      registeredRepos: repos.map((r) => ({
+        name: r.name,
+        slug: r.repoSlug ?? r.name,
+        url: r.url,
+      })),
+      linkedProjects: links.map((l) => ({
+        id: l.targetProject?.id ?? l.targetProjectId,
+        name: l.targetProject?.name ?? l.targetProjectId,
+        slug: l.targetProject?.slug ?? '',
+        linkType: l.linkType,
+        label: l.label,
+      })),
+    };
+
+    const linked: LinkedProjectContext[] = [];
+    if (includeLinked && this.deps.projectLinks) {
+      const linkedIds = await this.deps.projectLinks.getLinkedProjectIds(query.projectId);
+      const focus = query.query ?? query.taskDescription ?? 'architecture bugs decisions';
+
+      for (const linkedId of linkedIds) {
+        const link = links.find((l) => l.targetProjectId === linkedId);
+        const project = await this.deps.projects.findById(linkedId);
+        if (!project) continue;
+
+        const search = await this.searchProjectMemories(linkedId, focus, {
+          types: [MemoryType.Bug, MemoryType.Decision, MemoryType.Architecture, MemoryType.Fact],
+          limit: 6,
+        });
+
+        linked.push({
+          projectId: linkedId,
+          projectName: project.name,
+          projectSlug: project.slug,
+          linkType: link?.linkType ?? ProjectLinkType.DependsOn,
+          highlights: search.results.map((r) => ({
+            id: r.memory.id,
+            title: r.memory.title,
+            type: r.memory.type,
+            summary: r.memory.summary,
+            score: r.score,
+          })),
+        });
+      }
+    }
+
+    const hints: string[] = [];
+    if (query.requiredRepoTag) {
+      hints.push(`Scoped to ${query.requiredRepoTag} — memories tagged on write and filtered on read.`);
+    } else if (repos.length > 1) {
+      hints.push(`Set NEURON_REPO to one of: ${repos.map((r) => r.repoSlug ?? r.name).join(', ')}`);
+    }
+    if (links.length) {
+      hints.push(
+        `${links.length} linked project(s) — search_memory and get_workspace_context include their highlights by default.`,
+      );
+    }
+    if (!repos.length) {
+      hints.push('Run register_repo or set NEURON_REPO to auto-register repos in this project.');
+    }
+
+    return { scope, primary, linked, hints };
   }
 }

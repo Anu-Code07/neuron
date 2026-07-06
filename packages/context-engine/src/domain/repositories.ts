@@ -28,6 +28,8 @@ export interface MemoryFilters {
   status?: string;
   layer?: string;
   tags?: string[];
+  /** Memories must include this tag (repo isolation) */
+  requiredRepoTag?: string;
   limit?: number;
   offset?: number;
 }
@@ -51,6 +53,38 @@ export interface ProjectRepository {
     techStack: string[];
     description: string | null;
   } | null>;
+  findBySlug?(slug: string): Promise<{
+    id: string;
+    name: string;
+    slug: string;
+  } | null>;
+}
+
+export interface ProjectLinkRepository {
+  listOutgoing(projectId: string): Promise<import('@neuron/shared').ProjectLink[]>;
+  getLinkedProjectIds(projectId: string): Promise<string[]>;
+  create(
+    sourceProjectId: string,
+    targetProjectId: string,
+    linkType: import('@neuron/shared').ProjectLinkType,
+    label?: string,
+  ): Promise<import('@neuron/shared').ProjectLink>;
+  delete(linkId: string): Promise<void>;
+}
+
+export interface WorkspaceRepoRepository {
+  listByProject(projectId: string): Promise<import('@neuron/shared').RegisteredRepo[]>;
+  findBySlug(projectId: string, repoSlug: string): Promise<import('@neuron/shared').RegisteredRepo | null>;
+  ensureRegistered(
+    projectId: string,
+    repoSlug: string,
+    name?: string,
+  ): Promise<import('@neuron/shared').RegisteredRepo>;
+  create(
+    projectId: string,
+    input: { name: string; repoSlug: string; url?: string; defaultBranch?: string },
+  ): Promise<import('@neuron/shared').RegisteredRepo>;
+  delete(repoId: string): Promise<void>;
 }
 
 export interface EmbeddingProvider {
@@ -63,6 +97,8 @@ export interface ContextEngineDeps {
   relationships: RelationshipRepository;
   embeddings: EmbeddingRepository;
   projects: ProjectRepository;
+  projectLinks?: ProjectLinkRepository;
+  workspaceRepos?: WorkspaceRepoRepository;
   embeddingProvider?: EmbeddingProvider;
   llm?: import('../ai/llm-provider.js').LlmProvider;
 }

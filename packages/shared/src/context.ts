@@ -21,6 +21,12 @@ export interface ContextQuery {
   tokenBudget?: number;
   includeTypes?: string[];
   excludeTypes?: string[];
+  /** When set, only memories with overlapping tags are included */
+  tags?: string[];
+  /** When set (e.g. from NEURON_REPO), memories must include this tag */
+  requiredRepoTag?: string;
+  /** Pull highlights from linked projects (host ↔ package) */
+  includeLinkedProjects?: boolean;
 }
 
 export interface RecentEdit {
@@ -177,6 +183,9 @@ export interface SearchMemoryInput {
   projectId: string;
   query: string;
   types?: string[];
+  tags?: string[];
+  requiredRepoTag?: string;
+  includeLinkedProjects?: boolean;
   limit?: number;
   minConfidence?: number;
   includeSuperseded?: boolean;
@@ -186,6 +195,7 @@ export interface SearchMemoryResult {
   results: ScoredMemory[];
   totalCount: number;
   query: string;
+  linkedProjectsSearched?: string[];
 }
 
 /** Forget / merge operations */

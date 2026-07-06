@@ -12,6 +12,34 @@ export {
 
 export { contextLayerToDb, contextLayerFromDb } from './context-layer.js';
 
+export {
+  normalizeRepoTag,
+  readNeuronRepoEnv,
+  mergeMemoryTags,
+  resolveReadTags,
+} from './repo-scope.js';
+
+export {
+  ProjectLinkType,
+  PROJECT_LINK_LABELS,
+} from './project-links.js';
+
+export type {
+  ProjectLink,
+  RegisteredRepo,
+  WorkspaceScope,
+  LinkedProjectContext,
+  WorkspaceContextPacket,
+} from './project-links.js';
+
+export {
+  getCheatsheet,
+  getAgentInstructions,
+  type CheatsheetSection,
+  type CheatsheetTool,
+  type CheatsheetEntry,
+} from './mcp-cheatsheet.js';
+
 export type {
   BaseEntity,
   User,

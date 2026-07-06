@@ -80,6 +80,8 @@ export const SearchMemorySchema = z.object({
   project_id: z.string().uuid(),
   query: z.string().min(1),
   types: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  include_linked_projects: z.boolean().optional(),
   limit: z.number().min(1).max(50).optional(),
 });
 
@@ -90,6 +92,52 @@ export const GetProjectContextSchema = z.object({
   open_files: z.array(z.string()).optional(),
   branch_name: z.string().optional(),
   token_budget: z.number().min(500).max(32000).optional(),
+  tags: z.array(z.string()).optional(),
+  include_linked_projects: z.boolean().optional(),
+});
+
+export const GetWorkspaceContextSchema = GetProjectContextSchema.extend({
+  task_description: z.string().optional(),
+});
+
+export const ListReposSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const RegisterRepoSchema = z.object({
+  project_id: z.string().uuid(),
+  name: z.string().min(1).max(200),
+  repo_slug: z.string().min(1).max(64),
+  url: z.string().url().optional(),
+  default_branch: z.string().optional(),
+});
+
+export const DeleteRepoSchema = z.object({
+  repo_id: z.string().uuid(),
+});
+
+export const ListProjectLinksSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const LinkProjectSchema = z.object({
+  project_id: z.string().uuid(),
+  target_project_id: z.string().uuid().optional(),
+  target_project_slug: z.string().optional(),
+  link_type: z
+    .enum(['depends_on', 'contains', 'consumes', 'workspace'])
+    .default('depends_on'),
+  label: z.string().max(200).optional(),
+});
+
+export const UnlinkProjectSchema = z.object({
+  link_id: z.string().uuid(),
+});
+
+export const CheatsheetSchema = z.object({
+  section: z
+    .enum(['all', 'start', 'remember', 'search', 'context', 'workspace', 'graph', 'ai', 'maintain'])
+    .optional(),
 });
 
 export const GetTaskContextSchema = z.object({
@@ -97,6 +145,7 @@ export const GetTaskContextSchema = z.object({
   task_description: z.string(),
   open_files: z.array(z.string()).optional(),
   token_budget: z.number().min(500).max(32000).optional(),
+  tags: z.array(z.string()).optional(),
 });
 
 export const GetFileContextSchema = z.object({

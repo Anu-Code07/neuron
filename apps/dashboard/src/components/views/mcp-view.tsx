@@ -3,34 +3,38 @@
 import { useState } from 'react';
 import { Check, Copy, Terminal } from 'lucide-react';
 import { useViewMode } from '@/lib/view-mode';
-import { UserApiKeyProvider, useUserApiKey } from '@/lib/hooks/use-user-api-key';
+import { useUserApiKey } from '@/lib/hooks/use-user-api-key';
+import { useActiveProject } from '@/lib/hooks/use-active-project';
 import { buildMcpJsonConfig, MCP_KEY_PLACEHOLDER, MCP_MANUAL_CONFIG_HINT } from '@/lib/mcp-install';
 import { ApiKeyPanel } from '@/components/ui/api-key-panel';
 import { GlassCard, GlassCodeBlock } from '@/components/ui/glass-card';
 
 const TOOLS = [
+  'cheatsheet',
+  'get_workspace_context',
   'remember_fact', 'remember_decision', 'remember_pattern', 'remember_bug',
   'remember_component', 'remember_api', 'remember_task', 'remember_architecture',
   'search_memory', 'get_project_context', 'get_task_context', 'get_file_context',
+  'list_repos', 'register_repo', 'list_project_links', 'link_project',
   'find_related', 'summarize_project', 'forget_memory', 'merge_memory',
   'find_duplicates', 'extract_memories', 'preview_memories', 'suggest_tags', 'ask_project',
   'suggest_context', 'condense_memories', 'suggest_relationships', 'extract_from_diff',
 ];
 
 export function McpView() {
-  return (
-    <UserApiKeyProvider>
-      <McpViewContent />
-    </UserApiKeyProvider>
-  );
+  return <McpViewContent />;
 }
 
 function McpViewContent() {
   const { setViewMode } = useViewMode();
+  const { activeProject } = useActiveProject();
   const { revealedKey } = useUserApiKey();
   const [copied, setCopied] = useState(false);
 
-  const mcpConfig = buildMcpJsonConfig(revealedKey ?? MCP_KEY_PLACEHOLDER);
+  const mcpConfig = buildMcpJsonConfig(revealedKey ?? MCP_KEY_PLACEHOLDER, {
+    projectId: activeProject?.id,
+    repoSlug: activeProject?.slug,
+  });
 
   function copyConfig() {
     if (!revealedKey) return;

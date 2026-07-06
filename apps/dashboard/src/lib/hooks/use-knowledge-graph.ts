@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useActiveProject } from '@/lib/hooks/use-active-project';
 
 export interface GraphMemory {
   id: string;
@@ -22,20 +23,26 @@ export interface GraphRelationship {
 }
 
 export function useKnowledgeGraph() {
+  const { activeProjectId } = useActiveProject();
+
   return useQuery({
-    queryKey: ['knowledge-graph'],
+    queryKey: ['knowledge-graph', activeProjectId],
     queryFn: async () => {
+      if (!activeProjectId) return { memories: [], relationships: [] };
+
       const supabase = createClient();
       const [memRes, relRes] = await Promise.all([
         supabase
           .from('memories')
           .select('id, title, type, content, confidence, importance, tags, layer, updated_at')
+          .eq('project_id', activeProjectId)
           .eq('status', 'active')
           .order('importance', { ascending: false })
           .limit(80),
         supabase
           .from('relationships')
           .select('source_memory_id, target_memory_id, type')
+          .eq('project_id', activeProjectId)
           .limit(200),
       ]);
 
@@ -51,17 +58,23 @@ export function useKnowledgeGraph() {
       return { memories, relationships };
     },
     staleTime: 20_000,
+    enabled: !!activeProjectId,
   });
 }
 
 export function useMemoriesList() {
+  const { activeProjectId } = useActiveProject();
+
   return useQuery({
-    queryKey: ['memories-all'],
+    queryKey: ['memories-all', activeProjectId],
     queryFn: async () => {
+      if (!activeProjectId) return [];
+
       const supabase = createClient();
       const { data, error } = await supabase
         .from('memories')
         .select('id, title, content, type, confidence, importance, tags, layer, updated_at')
+        .eq('project_id', activeProjectId)
         .eq('status', 'active')
         .order('updated_at', { ascending: false })
         .limit(100);
@@ -69,5 +82,6 @@ export function useMemoriesList() {
       return (data ?? []) as GraphMemory[];
     },
     staleTime: 20_000,
+    enabled: !!activeProjectId,
   });
 }
