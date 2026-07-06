@@ -12,6 +12,7 @@ export type UserApiKeyMeta = {
   key_prefix: string;
   project_id: string;
   last_used_at: string | null;
+  mcp_clients?: Record<string, string>;
   created_at: string;
 };
 

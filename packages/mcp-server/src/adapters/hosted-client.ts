@@ -5,6 +5,11 @@ const DEFAULT_API_URL = 'https://neuron-azure.vercel.app';
 
 type HostedCallResult = Record<string, unknown>;
 
+function mcpClientHeaders(): Record<string, string> {
+  const client = process.env.NEURON_MCP_CLIENT?.trim();
+  return client ? { 'X-Neuron-Client': client } : {};
+}
+
 async function hostedFetch(
   apiUrl: string,
   apiKey: string,
@@ -16,6 +21,7 @@ async function hostedFetch(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      ...mcpClientHeaders(),
     },
     body: JSON.stringify({ tool, args }),
   });
@@ -29,7 +35,10 @@ async function hostedFetch(
 
 export async function resolveHostedProjectId(apiUrl: string, apiKey: string): Promise<string> {
   const res = await fetch(`${apiUrl.replace(/\/$/, '')}/api/mcp`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      ...mcpClientHeaders(),
+    },
   });
   const body = (await res.json().catch(() => ({}))) as { project_id?: string; error?: string };
   if (!res.ok || !body.project_id) {

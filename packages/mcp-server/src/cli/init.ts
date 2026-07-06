@@ -117,15 +117,24 @@ async function resolveApiKey(opts: InitOptions): Promise<string | undefined> {
   return undefined;
 }
 
-function buildHostedConfig(apiKey: string, apiUrl?: string) {
+function buildHostedConfig(apiKey: string, apiUrl?: string, mcpClient?: string) {
+  const env: Record<string, string> = {
+    NEURON_API_KEY: apiKey,
+    NEURON_API_URL: apiUrl ?? process.env.NEURON_API_URL ?? DEFAULT_API_URL,
+  };
+  if (mcpClient) env.NEURON_MCP_CLIENT = mcpClient;
   return {
     command: 'npx',
     args: ['-y', NPX_PACKAGE],
-    env: {
-      NEURON_API_KEY: apiKey,
-      NEURON_API_URL: apiUrl ?? process.env.NEURON_API_URL ?? DEFAULT_API_URL,
-    },
+    env,
   };
+}
+
+function mcpClientForTarget(label: string): string {
+  const lower = label.toLowerCase();
+  if (lower.includes('claude')) return 'claude';
+  if (lower.includes('cursor')) return 'cursor';
+  return 'other';
 }
 
 /** Legacy direct Supabase mode — local development only */
@@ -149,20 +158,6 @@ function buildDirectConfig(opts: InitOptions) {
       NEURON_PROJECT_ID: projectId,
     },
   };
-}
-
-async function buildNeuronConfig(opts: InitOptions) {
-  const apiKey = await resolveApiKey(opts);
-  if (apiKey) return buildHostedConfig(apiKey, opts.apiUrl);
-
-  const hasDirect =
-    (opts.supabaseUrl ?? process.env.NEXT_PUBLIC_SUPABASE_URL) &&
-    (opts.serviceRoleKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY) &&
-    (opts.projectId ?? process.env.NEURON_PROJECT_ID);
-
-  if (hasDirect) return buildDirectConfig(opts);
-
-  throw new Error(missingKeyMessage());
 }
 
 function mergeMcpJson(existing: Record<string, unknown>, neuronConfig: unknown) {
@@ -189,11 +184,18 @@ export async function runInit(argv: string[]): Promise<void> {
   }
 
   const opts = parseArgs(argv);
-  const neuronConfig = await buildNeuronConfig(opts);
-  const output = { mcpServers: { neuron: neuronConfig } };
+  const apiKey = await resolveApiKey(opts);
+  const hasDirect =
+    !apiKey &&
+    (opts.supabaseUrl ?? process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    (opts.serviceRoleKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY) &&
+    (opts.projectId ?? process.env.NEURON_PROJECT_ID);
 
   if (opts.stdout) {
-    console.log(JSON.stringify(output, null, 2));
+    const neuronConfig = apiKey
+      ? buildHostedConfig(apiKey, opts.apiUrl)
+      : await buildDirectConfig(opts);
+    console.log(JSON.stringify({ mcpServers: { neuron: neuronConfig } }, null, 2));
     return;
   }
 
@@ -203,6 +205,11 @@ export async function runInit(argv: string[]): Promise<void> {
   }
 
   for (const { label, path } of targets) {
+    const neuronConfig = apiKey
+      ? buildHostedConfig(apiKey, opts.apiUrl, mcpClientForTarget(label))
+      : hasDirect
+        ? buildDirectConfig(opts)
+        : (() => { throw new Error(missingKeyMessage()); })();
     writeMcpConfig(path, neuronConfig);
     console.log(`✓ ${label} → ${path}`);
   }

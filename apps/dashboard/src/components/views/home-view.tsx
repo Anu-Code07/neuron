@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
   Brain,
+  Check,
   FileText,
   Layers,
   Loader2,
@@ -16,6 +17,13 @@ import { cn } from '@/lib/utils';
 import { useViewMode } from '@/lib/view-mode';
 import { GlassCard, GlassSection } from '@/components/ui/glass-card';
 import { DashboardHero } from '@/components/ui/sketch-stat-card';
+import {
+  countActiveMcpClients,
+  formatMcpClientLastSeen,
+  isMcpClientActive,
+  MCP_CLIENT_DEFS,
+  type McpClientMap,
+} from '@/lib/mcp-clients';
 
 interface HomeViewProps {
   onAddMemory?: () => void;
@@ -26,8 +34,9 @@ export function HomeView({ onAddMemory }: HomeViewProps) {
   const { setViewMode } = useViewMode();
 
   const memories = data?.memories ?? 0;
-  const connections = data?.connections ?? 2;
+  const connections = data?.connections ?? 0;
   const members = data?.members ?? 1;
+  const mcpClients = data?.mcpClients ?? {};
 
   const stats = [
     {
@@ -40,7 +49,7 @@ export function HomeView({ onAddMemory }: HomeViewProps) {
     },
     {
       label: 'Sources',
-      tagline: 'MCP clients connected',
+      tagline: connections > 0 ? 'MCP clients connected' : 'No MCP client active yet',
       value: String(connections),
       icon: Plug,
       iconBg: 'bg-[#CAFFBF]',
@@ -75,12 +84,19 @@ export function HomeView({ onAddMemory }: HomeViewProps) {
         </div>
       </section>
 
-      <ConnectionsBoard onOpenIntegrations={() => setViewMode('integrations')} onOpenMcp={() => setViewMode('mcp')} />
+      <ConnectionsBoard
+        mcpClients={mcpClients}
+        hasApiKey={data?.hasApiKey ?? false}
+        lastUsedAt={data?.lastUsedAt ?? null}
+        onOpenIntegrations={() => setViewMode('integrations')}
+        onOpenMcp={() => setViewMode('mcp')}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <RecentMemories loading={isLoading} memories={data?.recent ?? []} />
         <GettingStarted
           hasMemory={memories > 0}
+          mcpConnected={connections > 0}
           onAddMemory={onAddMemory}
           onOpenMcp={() => setViewMode('mcp')}
           onOpenDocs={() => setViewMode('docs')}
@@ -95,19 +111,28 @@ function useProjectStats() {
     queryKey: ['project-stats'],
     queryFn: async () => {
       const supabase = createClient();
-      const { data: memories, count } = await supabase
-        .from('memories')
-        .select('id, title, type, created_at', { count: 'exact' })
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(6);
+      const [memRes, keyRes] = await Promise.all([
+        supabase
+          .from('memories')
+          .select('id, title, type, created_at', { count: 'exact' })
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(6),
+        fetch('/api/keys?mine=1').then((r) => (r.ok ? r.json() : { key: null })),
+      ]);
+
+      const mcpClients = (keyRes.key?.mcp_clients ?? {}) as McpClientMap;
+      const connections = countActiveMcpClients(mcpClients);
 
       return {
-        memories: count ?? memories?.length ?? 0,
-        connections: 2,
+        memories: memRes.count ?? memRes.data?.length ?? 0,
+        connections,
         members: 1,
-        packets: Math.floor((count ?? 0) / 3),
-        recent: memories ?? [],
+        packets: Math.floor((memRes.count ?? 0) / 3),
+        recent: memRes.data ?? [],
+        mcpClients,
+        hasApiKey: !!keyRes.key,
+        lastUsedAt: keyRes.key?.last_used_at ?? null,
       };
     },
     staleTime: 30_000,
@@ -115,23 +140,30 @@ function useProjectStats() {
 }
 
 function ConnectionsBoard({
+  mcpClients,
+  hasApiKey,
+  lastUsedAt,
   onOpenIntegrations,
   onOpenMcp,
 }: {
+  mcpClients: McpClientMap;
+  hasApiKey: boolean;
+  lastUsedAt: string | null;
   onOpenIntegrations: () => void;
   onOpenMcp: () => void;
 }) {
-  const integrations = [
-    { name: 'MCP clients', slug: 'mcp', connected: true },
-    { name: 'Claude Desktop', slug: 'claude', connected: false },
-    { name: 'Antigravity', slug: 'antigravity', connected: false },
-    { name: 'GitHub', slug: 'github', connected: true },
-  ];
+  const anyActive = countActiveMcpClients(mcpClients) > 0;
 
   return (
     <GlassSection
       title="Connected sources"
-      description="MCP clients and integrations feeding your context engine"
+      description={
+        anyActive
+          ? 'Green = this client called Neuron in the last 7 days'
+          : hasApiKey
+            ? 'Run init again per client, then use MCP — activity will show here'
+            : 'Generate an API key and connect Cursor or Claude'
+      }
       action={
         <button type="button" onClick={onOpenIntegrations} className="text-[12px] font-medium text-[#4BA0FA] hover:underline">
           View all →
@@ -139,20 +171,52 @@ function ConnectionsBoard({
       }
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {integrations.map((item, i) => (
-          <GlassCard key={item.slug} padding="sm" delay={i * 0.05} className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-white/[0.06] text-[#4BA0FA] ring-1 ring-white/10">
-              <Plug className="size-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-medium text-white">{item.name}</p>
-              <p className={cn('text-[11px]', item.connected ? 'text-emerald-400' : 'text-white/40')}>
-                {item.connected ? 'Connected' : 'Not connected'}
-              </p>
-            </div>
-          </GlassCard>
-        ))}
+        {MCP_CLIENT_DEFS.map((item, i) => {
+          const connected = isMcpClientActive(mcpClients, item.slug);
+          const lastSeen = formatMcpClientLastSeen(mcpClients, item.slug);
+          return (
+            <GlassCard
+              key={item.slug}
+              padding="sm"
+              delay={i * 0.05}
+              className={cn(
+                'relative flex items-center gap-3 transition',
+                connected && 'ring-1 ring-emerald-500/40 shadow-[0_0_24px_rgba(52,211,153,0.12)]',
+              )}
+            >
+              {connected && (
+                <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                  <Check className="size-3" />
+                </span>
+              )}
+              <div
+                className={cn(
+                  'flex size-9 items-center justify-center rounded-xl ring-1',
+                  connected
+                    ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30'
+                    : 'bg-white/[0.06] text-[#4BA0FA] ring-white/10',
+                )}
+              >
+                <Plug className="size-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-medium text-white">{item.name}</p>
+                <p className={cn('text-[11px]', connected ? 'text-emerald-400' : 'text-white/40')}>
+                  {connected ? `Connected · ${lastSeen}` : 'Not connected'}
+                </p>
+              </div>
+            </GlassCard>
+          );
+        })}
       </div>
+      {!anyActive && lastUsedAt && (
+        <p className="mt-3 text-[11px] text-amber-400/90">
+          API key was used {new Date(lastUsedAt).toLocaleString()}, but no client tag yet —
+          re-run{' '}
+          <code className="rounded bg-white/10 px-1">npx @anuraghq/neuron-mcp-server init</code>{' '}
+          so Cursor vs Claude is tracked.
+        </p>
+      )}
       <button
         type="button"
         onClick={onOpenMcp}
@@ -206,18 +270,20 @@ function RecentMemories({
 
 function GettingStarted({
   hasMemory,
+  mcpConnected,
   onAddMemory,
   onOpenMcp,
   onOpenDocs,
 }: {
   hasMemory: boolean;
+  mcpConnected: boolean;
   onAddMemory?: () => void;
   onOpenMcp: () => void;
   onOpenDocs: () => void;
 }) {
   const steps = [
     { done: true, label: 'Create project', action: null as (() => void) | null },
-    { done: false, label: 'Connect MCP client', action: onOpenMcp },
+    { done: mcpConnected, label: 'Connect MCP client', action: onOpenMcp },
     { done: hasMemory, label: 'Add first memory', action: onAddMemory ?? null },
   ];
 

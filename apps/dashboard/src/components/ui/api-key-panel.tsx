@@ -8,6 +8,11 @@ import {
   useUserApiKey,
 } from '@/lib/hooks/use-user-api-key';
 import { MCP_INTERACTIVE_INSTALL } from '@/lib/mcp-install';
+import {
+  formatMcpClientLastSeen,
+  isMcpClientActive,
+  MCP_CLIENT_DEFS,
+} from '@/lib/mcp-clients';
 import { GlassCard, GlassCodeBlock } from '@/components/ui/glass-card';
 import { cn } from '@/lib/utils';
 
@@ -212,6 +217,29 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
                   ? 'Install command copied — paste in Terminal, then restart your editor.'
                   : 'Full key visible this session — use the copy icon in the input before you leave.'}
             </p>
+          </div>
+        )}
+
+        {hasKey && meta && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {MCP_CLIENT_DEFS.map((client) => {
+              const active = isMcpClientActive(meta.mcp_clients, client.slug);
+              const lastSeen = formatMcpClientLastSeen(meta.mcp_clients, client.slug);
+              return (
+                <span
+                  key={client.slug}
+                  className={cn(
+                    'rounded-full px-2.5 py-1 text-[10px] font-medium ring-1',
+                    active
+                      ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30'
+                      : 'bg-white/[0.04] text-white/35 ring-white/10',
+                  )}
+                >
+                  {client.name}
+                  {active ? ` · ${lastSeen}` : ' · offline'}
+                </span>
+              );
+            })}
           </div>
         )}
 

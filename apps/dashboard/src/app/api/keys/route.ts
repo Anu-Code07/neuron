@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { generateApiKey } from '@/lib/auth/api-key';
 import { resolveProjectForUser } from '@/lib/auth/resolve-project';
 
-const KEY_FIELDS = 'id, name, key_prefix, project_id, last_used_at, created_at';
+const KEY_FIELDS = 'id, name, key_prefix, project_id, last_used_at, mcp_clients, created_at';
 
 async function getExistingKeyForUser(service: ReturnType<typeof createServiceClient>, userId: string) {
   const { data } = await service

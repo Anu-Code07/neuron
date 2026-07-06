@@ -2,13 +2,19 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@neuron/supabase';
 import { extractBearerToken } from '@/lib/auth/api-key';
 import { getNeuronEngine } from '@/lib/neuron-engine';
+import { normalizeMcpClientHeader } from '@/lib/mcp-clients';
 
-async function resolveProjectFromKey(rawKey: string | null) {
+async function resolveProjectFromKey(rawKey: string | null, request?: Request) {
   if (!rawKey?.startsWith('nrn_')) return null;
+
+  const clientName = request
+    ? normalizeMcpClientHeader(request.headers.get('x-neuron-client'))
+    : null;
 
   const client = createServiceClient();
   const { data, error } = await client.rpc('verify_api_key' as never, {
     raw_key: rawKey,
+    client_name: clientName,
   } as never);
 
   if (error || !data) return null;
@@ -19,7 +25,7 @@ async function resolveProjectFromKey(rawKey: string | null) {
 /** GET — resolve project from NEURON_API_KEY (for hosted MCP client bootstrap) */
 export async function GET(request: Request) {
   const token = extractBearerToken(request);
-  const projectId = await resolveProjectFromKey(token);
+  const projectId = await resolveProjectFromKey(token, request);
   if (!projectId) {
     return NextResponse.json({ error: 'Invalid NEURON_API_KEY' }, { status: 401 });
   }
@@ -29,7 +35,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const token = extractBearerToken(request);
-    const projectId = await resolveProjectFromKey(token);
+    const projectId = await resolveProjectFromKey(token, request);
     if (!projectId) {
       return NextResponse.json({ error: 'Invalid NEURON_API_KEY' }, { status: 401 });
     }
