@@ -101,7 +101,7 @@ export function LandingPage() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-xl text-[16px] leading-relaxed text-white/50 md:text-lg">
-              A context engine for Cursor, Claude, and any MCP client.
+              A context engine for Cursor, Claude, Antigravity, and any MCP client.
               One API key. Memory that persists. Built for developers who care about craft.
             </p>
 
@@ -219,7 +219,7 @@ export function LandingPage() {
             Give your AI a brain
           </h2>
           <p className="mt-4 text-[15px] text-white/50">
-            Sign in, generate an API key, connect Cursor — under 60 seconds.
+            Sign in, generate an API key, connect your IDE — under 60 seconds.
           </p>
           <Link
             href="/login"

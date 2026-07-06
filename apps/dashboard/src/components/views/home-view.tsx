@@ -122,9 +122,9 @@ function ConnectionsBoard({
   onOpenMcp: () => void;
 }) {
   const integrations = [
-    { name: 'Cursor', slug: 'cursor', connected: true },
+    { name: 'MCP clients', slug: 'mcp', connected: true },
     { name: 'Claude Desktop', slug: 'claude', connected: false },
-    { name: 'VS Code', slug: 'vscode', connected: false },
+    { name: 'Antigravity', slug: 'antigravity', connected: false },
     { name: 'GitHub', slug: 'github', connected: true },
   ];
 

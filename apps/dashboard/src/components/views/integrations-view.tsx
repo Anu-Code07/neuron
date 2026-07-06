@@ -15,10 +15,10 @@ import { cn } from '@/lib/utils';
 
 const integrations = [
   {
-    id: 'cursor',
-    name: 'Cursor',
-    tagline: 'In-IDE context via MCP',
-    description: 'One API key. Neuron remembers facts, decisions, and architecture while you code.',
+    id: 'mcp',
+    name: 'MCP clients',
+    tagline: 'Cursor · Claude · Antigravity · VS Code',
+    description: 'One API key works in any MCP-compatible editor. Neuron remembers facts, decisions, and architecture while you code.',
     icon: Terminal,
     status: 'available' as const,
     featured: true,
@@ -72,7 +72,7 @@ export function IntegrationsView() {
   const rest = integrations.filter((i) => !i.featured);
 
   function open(itemId: string) {
-    if (itemId === 'cursor' || itemId === 'claude') setViewMode('mcp');
+    if (itemId === 'mcp' || itemId === 'cursor' || itemId === 'claude') setViewMode('mcp');
   }
 
   return (
@@ -169,8 +169,8 @@ export function IntegrationsView() {
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {[
             { step: '01', title: 'Generate key', body: 'Settings → Generate demo API key. Share with your team.' },
-            { step: '02', title: 'Run init', body: 'One npx command writes ~/.cursor/mcp.json automatically.' },
-            { step: '03', title: 'Ask Cursor', body: '"Use neuron to remember_fact that our API is …"' },
+            { step: '02', title: 'Run init', body: 'One npx command writes your MCP config (Cursor, Claude Desktop, etc.).' },
+            { step: '03', title: 'Use in your IDE', body: '"Use neuron to remember_fact that our API is …"' },
           ].map((s) => (
             <div key={s.step} className="glass-inner rounded-xl p-4">
               <span className="text-[11px] font-bold text-[#4BA0FA]">{s.step}</span>

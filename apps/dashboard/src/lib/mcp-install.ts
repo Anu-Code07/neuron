@@ -2,6 +2,15 @@ export const MCP_NPX_PACKAGE = '@anuraghq/neuron-mcp-server';
 export const DEFAULT_NEURON_API_URL = 'https://neuron-azure.vercel.app';
 export const MCP_KEY_PLACEHOLDER = 'nrn_your_key_here';
 
+/** Generic label for supported MCP hosts — use in UI copy */
+export const MCP_CLIENTS_LABEL = 'Cursor, Claude, Antigravity, or any MCP client';
+
+export const MCP_RESTART_HINT =
+  'Restart your editor and confirm neuron is connected in MCP settings.';
+
+export const MCP_MANUAL_CONFIG_HINT =
+  'Paste into your editor\'s MCP settings if you prefer not to use the terminal.';
+
 /** One-line install — works on Mac, Linux, and Windows */
 export function buildMcpInstallCommand(apiKey: string) {
   return `npx ${MCP_NPX_PACKAGE} init --api-key ${apiKey}`;

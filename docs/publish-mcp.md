@@ -1,39 +1,37 @@
-# Publishing @neuron/mcp-server
+# Publishing @anuraghq/neuron-mcp-server
 
 ## One-time setup
 
-### 1. Create npm organization
+### 1. npm access
 
 ```bash
 npm login
-npm org create neuron
-# Or publish unscoped: change name to "neuron-mcp" in package.json
+# Package is published as @anuraghq/neuron-mcp-server
 ```
 
-### 2. Add GitHub secret
+### 2. GitHub secret (optional CI)
 
 In GitHub → **Settings → Secrets → Actions**, add:
 
 | Secret | Value |
 |--------|--------|
-| `NPM_TOKEN` | npm access token with publish permission ([npmjs.com/settings/tokens](https://www.npmjs.org/settings/tokens)) |
+| `NPM_TOKEN` | npm access token with publish permission |
 
 ### 3. Publish
 
-**Option A — GitHub Release (recommended)**
-
-```bash
-# Bump version in packages/mcp-server/package.json
-git tag mcp-server-v0.1.0
-git push origin mcp-server-v0.1.0
-# Create GitHub Release from tag → CI publishes automatically
-```
-
-**Option B — Manual**
+**Manual (current)**
 
 ```bash
 cd packages/mcp-server
-pnpm publish:npm
+NPM_PUBLISH_NAME=@anuraghq/neuron-mcp-server pnpm publish:npm
+```
+
+**GitHub Release (optional)**
+
+```bash
+git tag mcp-server-v0.1.4
+git push origin mcp-server-v0.1.4
+# Create GitHub Release from tag → CI can publish automatically
 ```
 
 ---
@@ -41,29 +39,18 @@ pnpm publish:npm
 ## Customer install (after publish)
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=your-key \
-NEURON_PROJECT_ID=your-project-uuid \
-npx @neuron/mcp-server init
+npx @anuraghq/neuron-mcp-server init --api-key nrn_your_key_here
 ```
 
-Restart Cursor. No clone, no build, no absolute paths.
+Restart your editor. Works with Cursor, Claude Desktop, Antigravity, and any MCP client. No Supabase or Groq secrets needed.
 
 ---
 
-## Roadmap: zero-config hosted MCP
+## Hosted MCP (live)
 
-Today customers paste 3 secrets. Future options:
+| Phase | Status |
+|-------|--------|
+| **Now** | Single `NEURON_API_KEY` → hosted backend proxies to Supabase + Groq |
+| **Future** | OAuth hosted MCP at a single URL (like Supabase MCP) |
 
-| Phase | UX |
-|-------|-----|
-| **Now** | `npx @neuron/mcp-server init` + 3 env vars from dashboard |
-| **Next** | Single `NEURON_API_KEY` from dashboard → your backend proxies to Supabase |
-| **Best** | Hosted MCP at `https://mcp.neuron.dev/mcp` with OAuth (like Supabase MCP) — one URL, no secrets in config |
-
-Hosted MCP requires:
-- Multi-tenant auth (OAuth or API keys)
-- Edge/server MCP over SSE or streamable HTTP
-- Per-user project scoping in RLS
-
-See [Supabase MCP](https://supabase.com/docs/guides/getting-started/mcp) for the OAuth pattern to follow.
+Customers get one API key from the dashboard. All 31 MCP tools run server-side with Groq.

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Check, Copy, Terminal } from 'lucide-react';
 import { useViewMode } from '@/lib/view-mode';
 import { UserApiKeyProvider, useUserApiKey } from '@/lib/hooks/use-user-api-key';
-import { buildMcpJsonConfig, MCP_KEY_PLACEHOLDER } from '@/lib/mcp-install';
+import { buildMcpJsonConfig, MCP_KEY_PLACEHOLDER, MCP_MANUAL_CONFIG_HINT } from '@/lib/mcp-install';
 import { ApiKeyPanel } from '@/components/ui/api-key-panel';
 import { GlassCard, GlassCodeBlock } from '@/components/ui/glass-card';
 
@@ -56,7 +56,7 @@ function McpViewContent() {
           </div>
           <div>
             <h2 className="text-2xl font-semibold text-white">MCP Setup</h2>
-            <p className="text-[13px] text-white/50">Generate your key, copy the install command, restart Cursor</p>
+            <p className="text-[13px] text-white/50">Generate your key, copy the install command, connect your MCP client</p>
           </div>
         </div>
       </div>
@@ -68,7 +68,7 @@ function McpViewContent() {
           <div>
             <h3 className="font-semibold text-white">Manual config</h3>
             <p className="mt-1 text-[12px] text-white/45">
-              Paste into Cursor → Settings → MCP if you prefer not to use the terminal.
+              {MCP_MANUAL_CONFIG_HINT} Works with Cursor, Claude Desktop, Antigravity, and other MCP hosts.
             </p>
           </div>
           <button

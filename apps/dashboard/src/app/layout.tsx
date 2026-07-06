@@ -11,7 +11,7 @@ const font = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: 'Neuron — Context Engine for AI',
-  description: 'The Context Operating System for AI. Persistent memory for Cursor, Claude, and MCP.',
+  description: 'The Context Operating System for AI. Persistent memory for Cursor, Claude, Antigravity, and MCP.',
   icons: {
     icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
     apple: [{ url: '/icon.svg' }],

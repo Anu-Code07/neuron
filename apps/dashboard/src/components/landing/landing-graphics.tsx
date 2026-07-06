@@ -81,7 +81,7 @@ export function FloatingHeroCards() {
   const cards = [
     { label: 'Auth uses Supabase', detail: 'decision stored', rotate: -12, x: '3%', y: '16%', gradient: 'from-rose-400/40 via-orange-300/20 to-transparent', glow: '#fb7185' },
     { label: 'Context for this task', detail: 'packet ready', rotate: 9, x: '76%', y: '10%', gradient: 'from-cyan-400/40 via-blue-400/20 to-transparent', glow: '#22d3ee' },
-    { label: 'Cursor connected', detail: 'MCP live', rotate: -5, x: '80%', y: '55%', gradient: 'from-violet-400/35 via-purple-400/15 to-transparent', glow: '#a78bfa' },
+    { label: 'MCP connected', detail: 'client live', rotate: -5, x: '80%', y: '55%', gradient: 'from-violet-400/35 via-purple-400/15 to-transparent', glow: '#a78bfa' },
     { label: '12 related memories', detail: 'graph linked', rotate: 11, x: '1%', y: '58%', gradient: 'from-emerald-400/35 via-teal-400/15 to-transparent', glow: '#34d399' },
   ];
 
@@ -122,7 +122,7 @@ export function FloatingHeroCards() {
 export function LogoMarquee() {
   const items = [
     'Store decisions once — recall them in every session',
-    'One API key connects Cursor, Claude, or any MCP client',
+    'One API key connects Cursor, Claude, Antigravity, or any MCP client',
     'Facts, bugs, and architecture — never explain twice',
     'Context packets assembled for your current task',
     'Share memory with your team — secrets stay on your server',
@@ -149,7 +149,7 @@ export function LogoMarquee() {
   );
 }
 
-const PARTNERS = ['Cursor', 'Claude', 'Groq', 'Supabase', 'VS Code', 'GitHub'];
+const PARTNERS = ['Cursor', 'Claude', 'Antigravity', 'Groq', 'Supabase', 'VS Code'];
 
 export function WorksWithStrip() {
   return (
@@ -179,7 +179,7 @@ export function HowItWorksSteps() {
   const steps = [
     { n: '01', title: 'Sign in', desc: 'Create your project in seconds with magic link auth.' },
     { n: '02', title: 'Get API key', desc: 'One key per account — copy a single install command for your team.' },
-    { n: '03', title: 'Connect Cursor', desc: 'Run init, restart MCP — your AI picks up where you left off.' },
+    { n: '03', title: 'Connect your IDE', desc: 'Run init, restart MCP — works in Cursor, Claude, Antigravity, and more.' },
   ];
 
   return (

@@ -96,7 +96,7 @@ export function DashboardHero({
           </h1>
 
           <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-white/55">
-            Persistent project memory for Cursor, Claude, and any MCP client — one API key, zero config.
+            Persistent project memory for Cursor, Claude, Antigravity, and any MCP client — one API key, zero config.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

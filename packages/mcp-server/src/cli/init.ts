@@ -159,5 +159,6 @@ export async function runInit(argv: string[]): Promise<void> {
     console.log(`✓ Wrote neuron MCP config → ${target}`);
   }
 
-  console.log('\nRestart Cursor → Settings → MCP → confirm "neuron" is connected.');
+  console.log('\nRestart your editor and confirm "neuron" is connected in MCP settings.');
+  console.log('Works with Cursor, Claude Desktop, Antigravity, and other MCP clients.');
 }

@@ -18,6 +18,7 @@ import {
 import {
   buildMcpInstallCommand,
   DEFAULT_NEURON_API_URL,
+  MCP_CLIENTS_LABEL,
   MCP_INTERACTIVE_INSTALL,
   MCP_KEY_PLACEHOLDER,
 } from '@/lib/mcp-install';
@@ -95,7 +96,7 @@ export function DocsView() {
       <div className="min-w-0 flex-1">
         <div className="page-hero-gradient mb-6 rounded-3xl px-2 py-6 md:px-4">
           <p className="glass-pill inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium text-[#4BA0FA]">
-            <Sparkles className="size-3" /> v0.1.3
+            <Sparkles className="size-3" /> v0.1.4
           </p>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white md:text-3xl">
             {SECTIONS.find((s) => s.id === active)?.label}
@@ -124,7 +125,7 @@ function QuickstartSection() {
           {[
             'MCP Setup → Generate your API key',
             'Copy the one-line install command and run it in terminal',
-            'Restart Cursor → Settings → MCP → confirm "neuron" is green',
+            'Restart your editor → MCP settings → confirm "neuron" is connected',
           ].map((step, i) => (
             <li key={step} className="flex gap-3 text-[13px] text-white/80">
               <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#4BA0FA]/20 text-[11px] font-bold text-[#4BA0FA]">
@@ -145,7 +146,7 @@ function QuickstartSection() {
       <GlassCard padding="lg">
         <h3 className="font-semibold text-white">Test it</h3>
         <p className="mt-2 text-[13px] text-white/50">
-          Ask Cursor in natural language:
+          Ask your AI assistant in natural language ({MCP_CLIENTS_LABEL}):
         </p>
         <GlassCodeBlock
           className="mt-3"
@@ -169,7 +170,7 @@ function AuthSection() {
           <p className="text-[12px] font-medium text-white">What customers get</p>
           <ul className="mt-2 space-y-1 text-[12px] text-white/45">
             <li>• One install command with <code className="font-mono">--api-key</code></li>
-            <li>• Or paste JSON into Cursor MCP settings</li>
+            <li>• Or paste JSON into your editor&apos;s MCP settings</li>
           </ul>
         </div>
         <div className="glass-inner rounded-xl p-4">
