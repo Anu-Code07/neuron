@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 
 import {
+  buildClaudeInstallCommand,
+  buildCursorInstallCommand,
   buildMcpInstallCommand,
   DEFAULT_NEURON_API_URL,
   MCP_CLIENTS_LABEL,
@@ -124,8 +126,8 @@ function QuickstartSection() {
         <ol className="mt-5 space-y-4">
           {[
             'MCP Setup → Generate your API key',
-            'Copy the one-line install command and run it in terminal',
-            'Restart your editor → MCP settings → confirm "neuron" is connected',
+            'Run the install command (configures Cursor + Claude Desktop by default)',
+            'Restart your MCP client — Cursor: Settings → MCP · Claude: quit and reopen',
           ].map((step, i) => (
             <li key={step} className="flex gap-3 text-[13px] text-white/80">
               <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#4BA0FA]/20 text-[11px] font-bold text-[#4BA0FA]">
@@ -139,6 +141,12 @@ function QuickstartSection() {
           className="mt-5"
           code={buildMcpInstallCommand(MCP_KEY_PLACEHOLDER)}
         />
+        <p className="mt-3 text-[12px] text-white/40">
+          One client only?{' '}
+          <code className="font-mono text-[11px]">{buildCursorInstallCommand(MCP_KEY_PLACEHOLDER)}</code>
+          {' · '}
+          <code className="font-mono text-[11px]">{buildClaudeInstallCommand(MCP_KEY_PLACEHOLDER)}</code>
+        </p>
         <p className="mt-3 text-[12px] text-white/40">Or run interactively — paste your key when prompted:</p>
         <GlassCodeBlock className="mt-2" code={MCP_INTERACTIVE_INSTALL} />
       </GlassCard>

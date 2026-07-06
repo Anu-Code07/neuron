@@ -18,9 +18,23 @@ Or run interactively — paste your key when prompted:
 npx @anuraghq/neuron-mcp-server init
 ```
 
-Restart your editor → MCP settings → confirm **neuron** is connected.
+Restart your MCP client(s). Works with Cursor, Claude Desktop, and any MCP host.
 
-## How it works
+### Install targets (default: Cursor + Claude)
+
+```bash
+# Both Cursor (~/.cursor/mcp.json) and Claude Desktop
+npx @anuraghq/neuron-mcp-server init --api-key nrn_your_key_here
+
+# Cursor only
+npx @anuraghq/neuron-mcp-server init --cursor --api-key nrn_your_key_here
+
+# Claude Desktop only (macOS: ~/Library/Application Support/Claude/claude_desktop_config.json)
+npx @anuraghq/neuron-mcp-server init --claude --api-key nrn_your_key_here
+
+# Print JSON for any other MCP client
+npx @anuraghq/neuron-mcp-server init --stdout --api-key nrn_your_key_here
+```
 
 With `NEURON_API_KEY`, the MCP server proxies all tool calls to the hosted Neuron API. Supabase and Groq credentials stay on the server — customers only need one key.
 

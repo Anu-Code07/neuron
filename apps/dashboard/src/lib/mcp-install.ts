@@ -11,9 +11,19 @@ export const MCP_RESTART_HINT =
 export const MCP_MANUAL_CONFIG_HINT =
   'Paste into your editor\'s MCP settings if you prefer not to use the terminal.';
 
-/** One-line install — works on Mac, Linux, and Windows */
+/** One-line install — writes Cursor + Claude Desktop config by default */
 export function buildMcpInstallCommand(apiKey: string) {
   return `npx ${MCP_NPX_PACKAGE} init --api-key ${apiKey}`;
+}
+
+/** Claude Desktop only */
+export function buildClaudeInstallCommand(apiKey: string) {
+  return `npx ${MCP_NPX_PACKAGE} init --claude --api-key ${apiKey}`;
+}
+
+/** Cursor only */
+export function buildCursorInstallCommand(apiKey: string) {
+  return `npx ${MCP_NPX_PACKAGE} init --cursor --api-key ${apiKey}`;
 }
 
 /** Interactive — CLI prompts for the key (no flags needed) */

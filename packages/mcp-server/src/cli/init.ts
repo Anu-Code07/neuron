@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { homedir, platform } from 'node:os';
+import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 
@@ -10,6 +10,7 @@ export const DEFAULT_API_URL = 'https://neuron-azure.vercel.app';
 
 interface InitOptions {
   cursor?: boolean;
+  claude?: boolean;
   project?: boolean;
   stdout?: boolean;
   apiKey?: string;
@@ -21,13 +22,53 @@ interface InitOptions {
   projectId?: string;
 }
 
+export interface McpInstallTarget {
+  label: string;
+  path: string;
+}
+
+export function claudeDesktopConfigPath(): string {
+  const home = homedir();
+  if (platform() === 'darwin') {
+    return join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  }
+  if (platform() === 'win32') {
+    const appData = process.env.APPDATA ?? join(home, 'AppData', 'Roaming');
+    return join(appData, 'Claude', 'claude_desktop_config.json');
+  }
+  return join(home, '.config', 'Claude', 'claude_desktop_config.json');
+}
+
+/** Resolve MCP config file paths for supported clients */
+export function resolveMcpInstallTargets(opts: InitOptions): McpInstallTarget[] {
+  const explicitClient = opts.cursor === true || opts.claude === true;
+  const includeCursor = explicitClient ? opts.cursor === true : true;
+  const includeClaude = explicitClient ? opts.claude === true : true;
+
+  const targets: McpInstallTarget[] = [];
+
+  if (opts.project) {
+    targets.push({ label: 'Cursor (this repo)', path: join(process.cwd(), '.cursor', 'mcp.json') });
+  }
+  if (includeCursor) {
+    targets.push({ label: 'Cursor', path: join(homedir(), '.cursor', 'mcp.json') });
+  }
+  if (includeClaude) {
+    targets.push({ label: 'Claude Desktop', path: claudeDesktopConfigPath() });
+  }
+
+  return targets;
+}
+
 function parseArgs(argv: string[]): InitOptions {
-  const opts: InitOptions = { cursor: true, interactive: true };
+  const opts: InitOptions = { interactive: true };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--project') opts.project = true;
     if (arg === '--stdout') opts.stdout = true;
     if (arg === '--no-interactive') opts.interactive = false;
+    if (arg === '--cursor') opts.cursor = true;
+    if (arg === '--claude') opts.claude = true;
     if (arg === '--api-key') opts.apiKey = argv[++i];
     if (arg === '--api-url') opts.apiUrl = argv[++i];
     if (arg === '--supabase-url') opts.supabaseUrl = argv[++i];
@@ -42,7 +83,9 @@ function missingKeyMessage(): string {
     'Missing API key. Get one from the Neuron dashboard → MCP Setup, then run:\n\n' +
     `  npx ${NPX_PACKAGE} init --api-key nrn_your_key_here\n\n` +
     'Or run without flags and paste your key when prompted:\n\n' +
-    `  npx ${NPX_PACKAGE} init`
+    `  npx ${NPX_PACKAGE} init\n\n` +
+    'By default, config is written for Cursor and Claude Desktop.\n' +
+    'Use --cursor or --claude to target one client only.'
   );
 }
 
@@ -127,6 +170,16 @@ function mergeMcpJson(existing: Record<string, unknown>, neuronConfig: unknown) 
   return { ...existing, mcpServers: { ...servers, neuron: neuronConfig } };
 }
 
+function writeMcpConfig(targetPath: string, neuronConfig: unknown) {
+  mkdirSync(dirname(targetPath), { recursive: true });
+  let existing: Record<string, unknown> = {};
+  if (existsSync(targetPath)) {
+    existing = JSON.parse(readFileSync(targetPath, 'utf8')) as Record<string, unknown>;
+  }
+  const merged = mergeMcpJson(existing, neuronConfig);
+  writeFileSync(targetPath, `${JSON.stringify(merged, null, 2)}\n`);
+}
+
 export async function runInit(argv: string[]): Promise<void> {
   try {
     const { config } = await import('dotenv');
@@ -144,21 +197,18 @@ export async function runInit(argv: string[]): Promise<void> {
     return;
   }
 
-  const targets: string[] = [];
-  if (opts.project) targets.push(join(process.cwd(), '.cursor', 'mcp.json'));
-  if (opts.cursor !== false) targets.push(join(homedir(), '.cursor', 'mcp.json'));
-
-  for (const target of targets) {
-    mkdirSync(join(target, '..'), { recursive: true });
-    let existing: Record<string, unknown> = {};
-    if (existsSync(target)) {
-      existing = JSON.parse(readFileSync(target, 'utf8')) as Record<string, unknown>;
-    }
-    const merged = mergeMcpJson(existing, neuronConfig);
-    writeFileSync(target, `${JSON.stringify(merged, null, 2)}\n`);
-    console.log(`✓ Wrote neuron MCP config → ${target}`);
+  const targets = resolveMcpInstallTargets(opts);
+  if (!targets.length) {
+    throw new Error('No install targets. Use --cursor and/or --claude (default: both).');
   }
 
-  console.log('\nRestart your editor and confirm "neuron" is connected in MCP settings.');
-  console.log('Works with Cursor, Claude Desktop, Antigravity, and other MCP clients.');
+  for (const { label, path } of targets) {
+    writeMcpConfig(path, neuronConfig);
+    console.log(`✓ ${label} → ${path}`);
+  }
+
+  console.log('\nRestart your MCP client(s), then confirm "neuron" is connected.');
+  console.log('  • Cursor: Settings → MCP');
+  console.log('  • Claude Desktop: quit fully and reopen the app');
+  console.log('\nFlags: --cursor (Cursor only) · --claude (Claude only) · default installs both');
 }

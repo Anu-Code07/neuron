@@ -250,7 +250,7 @@ export function ApiKeyPanel({ className, compact, showInstallCommands }: ApiKeyP
                   Install command
                 </h3>
                 <p className="mt-1 text-[12px] text-white/45">
-                  Run in Terminal or PowerShell, then restart your MCP client.
+                  Configures Cursor and Claude Desktop by default. Restart your MCP client(s) after running.
                 </p>
               </div>
               {installCmd && (
