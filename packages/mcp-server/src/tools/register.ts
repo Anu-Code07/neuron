@@ -27,14 +27,28 @@ import {
   SuggestRelationshipsSchema,
   ExtractFromDiffSchema,
 } from './schemas.js';
+import {
+  type RegisterToolOptions,
+  isHostedRegistration,
+  parseProjectArgs,
+  projectIdZod,
+  toolShape,
+  withOptionalProjectId,
+} from './hosted-args.js';
 
 function textResult(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
 }
 
-function makeRememberHandler(engine: ContextEngine, type: MemoryType) {
+function makeRememberHandler(
+  engine: ContextEngine,
+  type: MemoryType,
+  hosted: boolean,
+  defaultProjectId?: string,
+) {
   return async (args: Record<string, unknown>) => {
-    const parsed = RememberSchema.parse(args);
+    const schema = withOptionalProjectId(RememberSchema, hosted);
+    const parsed = parseProjectArgs(schema, args, defaultProjectId);
     const memory = await engine.remember({
       projectId: parsed.project_id,
       type,
@@ -50,19 +64,26 @@ function makeRememberHandler(engine: ContextEngine, type: MemoryType) {
   };
 }
 
-export function registerTools(server: McpServer, engine: ContextEngine): void {
+export function registerTools(
+  server: McpServer,
+  engine: ContextEngine,
+  options?: RegisterToolOptions,
+): void {
+  const hosted = isHostedRegistration(options);
+  const defaultProjectId = options?.defaultProjectId;
+
   server.tool(
     'remember_fact',
     'Store a factual piece of project knowledge',
-    RememberSchema.shape,
-    makeRememberHandler(engine, MemoryType.Fact),
+    toolShape(RememberSchema, hosted),
+    makeRememberHandler(engine, MemoryType.Fact, hosted, defaultProjectId),
   );
 
   server.tool(
     'remember_decision',
     'Store an architectural or product decision with rationale',
     {
-      project_id: RememberDecisionSchema.shape.project_id,
+      project_id: projectIdZod(hosted),
       title: RememberDecisionSchema.shape.title,
       content: RememberDecisionSchema.shape.content,
       chosen: RememberDecisionSchema.shape.chosen,
@@ -72,7 +93,8 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
       tags: RememberDecisionSchema.shape.tags,
     },
     async (args) => {
-      const parsed = RememberDecisionSchema.parse(args);
+      const schema = withOptionalProjectId(RememberDecisionSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const memory = await engine.remember({
         projectId: parsed.project_id,
         type: MemoryType.Decision,
@@ -94,15 +116,15 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'remember_pattern',
     'Store a coding pattern or convention',
-    RememberSchema.shape,
-    makeRememberHandler(engine, MemoryType.Pattern),
+    toolShape(RememberSchema, hosted),
+    makeRememberHandler(engine, MemoryType.Pattern, hosted, defaultProjectId),
   );
 
   server.tool(
     'remember_bug',
     'Store a bug report with severity and reproduction steps',
     {
-      project_id: RememberBugSchema.shape.project_id,
+      project_id: projectIdZod(hosted),
       title: RememberBugSchema.shape.title,
       content: RememberBugSchema.shape.content,
       severity: RememberBugSchema.shape.severity,
@@ -111,7 +133,8 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
       tags: RememberBugSchema.shape.tags,
     },
     async (args) => {
-      const parsed = RememberBugSchema.parse(args);
+      const schema = withOptionalProjectId(RememberBugSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const memory = await engine.remember({
         projectId: parsed.project_id,
         type: MemoryType.Bug,
@@ -133,7 +156,7 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
     'remember_component',
     'Store a software component definition',
     {
-      project_id: RememberComponentSchema.shape.project_id,
+      project_id: projectIdZod(hosted),
       title: RememberComponentSchema.shape.title,
       content: RememberComponentSchema.shape.content,
       file_path: RememberComponentSchema.shape.file_path,
@@ -142,7 +165,8 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
       tags: RememberComponentSchema.shape.tags,
     },
     async (args) => {
-      const parsed = RememberComponentSchema.parse(args);
+      const schema = withOptionalProjectId(RememberComponentSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const memory = await engine.remember({
         projectId: parsed.project_id,
         type: MemoryType.Component,
@@ -164,7 +188,7 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
     'remember_api',
     'Store an API endpoint definition',
     {
-      project_id: RememberApiSchema.shape.project_id,
+      project_id: projectIdZod(hosted),
       title: RememberApiSchema.shape.title,
       content: RememberApiSchema.shape.content,
       method: RememberApiSchema.shape.method,
@@ -174,7 +198,8 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
       tags: RememberApiSchema.shape.tags,
     },
     async (args) => {
-      const parsed = RememberApiSchema.parse(args);
+      const schema = withOptionalProjectId(RememberApiSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const memory = await engine.remember({
         projectId: parsed.project_id,
         type: MemoryType.Api,
@@ -196,30 +221,31 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'remember_task',
     'Store a task with goals and acceptance criteria',
-    RememberSchema.shape,
-    makeRememberHandler(engine, MemoryType.Task),
+    toolShape(RememberSchema, hosted),
+    makeRememberHandler(engine, MemoryType.Task, hosted, defaultProjectId),
   );
 
   server.tool(
     'remember_architecture',
     'Store architectural knowledge about the project',
-    RememberSchema.shape,
-    makeRememberHandler(engine, MemoryType.Architecture),
+    toolShape(RememberSchema, hosted),
+    makeRememberHandler(engine, MemoryType.Architecture, hosted, defaultProjectId),
   );
 
   server.tool(
     'remember_database',
     'Store database schema or query knowledge',
-    RememberSchema.shape,
-    makeRememberHandler(engine, MemoryType.Database),
+    toolShape(RememberSchema, hosted),
+    makeRememberHandler(engine, MemoryType.Database, hosted, defaultProjectId),
   );
 
   server.tool(
     'remember_relationship',
     'Create a relationship between two memories in the knowledge graph',
-    RememberRelationshipSchema.shape,
+    toolShape(RememberRelationshipSchema, hosted),
     async (args) => {
-      const parsed = RememberRelationshipSchema.parse(args);
+      const schema = withOptionalProjectId(RememberRelationshipSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       await engine.remember({
         projectId: parsed.project_id,
         type: MemoryType.Relationship,
@@ -237,30 +263,31 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'remember_note',
     'Store a general note',
-    RememberSchema.shape,
-    makeRememberHandler(engine, MemoryType.Note),
+    toolShape(RememberSchema, hosted),
+    makeRememberHandler(engine, MemoryType.Note, hosted, defaultProjectId),
   );
 
   server.tool(
     'remember_file',
     'Store knowledge about a specific file in the codebase',
-    RememberSchema.shape,
-    makeRememberHandler(engine, MemoryType.File),
+    toolShape(RememberSchema, hosted),
+    makeRememberHandler(engine, MemoryType.File, hosted, defaultProjectId),
   );
 
   server.tool(
     'remember_conversation',
     'Extract and store knowledge from a conversation (raw chat is not stored)',
-    RememberSchema.shape,
-    makeRememberHandler(engine, MemoryType.Conversation),
+    toolShape(RememberSchema, hosted),
+    makeRememberHandler(engine, MemoryType.Conversation, hosted, defaultProjectId),
   );
 
   server.tool(
     'search_memory',
     'Hybrid search across project memories (vector + keyword + graph)',
-    SearchMemorySchema.shape,
+    toolShape(SearchMemorySchema, hosted),
     async (args) => {
-      const parsed = SearchMemorySchema.parse(args);
+      const schema = withOptionalProjectId(SearchMemorySchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const results = await engine.searchMemory(parsed.project_id, parsed.query, {
         types: parsed.types,
         limit: parsed.limit,
@@ -272,9 +299,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'get_project_context',
     'Assemble an AI-ready context packet for the project — the core Context Engine output',
-    GetProjectContextSchema.shape,
+    toolShape(GetProjectContextSchema, hosted),
     async (args) => {
-      const parsed = GetProjectContextSchema.parse(args);
+      const schema = withOptionalProjectId(GetProjectContextSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const packet = await engine.getProjectContext({
         projectId: parsed.project_id,
         query: parsed.query,
@@ -290,9 +318,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'get_task_context',
     'Get context optimized for a specific task',
-    GetTaskContextSchema.shape,
+    toolShape(GetTaskContextSchema, hosted),
     async (args) => {
-      const parsed = GetTaskContextSchema.parse(args);
+      const schema = withOptionalProjectId(GetTaskContextSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const packet = await engine.getProjectContext({
         projectId: parsed.project_id,
         taskDescription: parsed.task_description,
@@ -307,9 +336,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'get_file_context',
     'Get context related to a specific file',
-    GetFileContextSchema.shape,
+    toolShape(GetFileContextSchema, hosted),
     async (args) => {
-      const parsed = GetFileContextSchema.parse(args);
+      const schema = withOptionalProjectId(GetFileContextSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const packet = await engine.getProjectContext({
         projectId: parsed.project_id,
         openFiles: [parsed.file_path],
@@ -323,9 +353,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'get_architecture',
     'Get architecture summary for the project',
-    { project_id: GetProjectContextSchema.shape.project_id },
+    { project_id: projectIdZod(hosted) },
     async (args) => {
-      const parsed = GetProjectContextSchema.parse(args);
+      const schema = withOptionalProjectId(GetProjectContextSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const packet = await engine.getProjectContext({
         projectId: parsed.project_id,
         query: 'architecture system design structure',
@@ -349,9 +380,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'summarize_project',
     'Generate a compact text summary of project knowledge',
-    SummarizeProjectSchema.shape,
+    toolShape(SummarizeProjectSchema, hosted),
     async (args) => {
-      const parsed = SummarizeProjectSchema.parse(args);
+      const schema = withOptionalProjectId(SummarizeProjectSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const summary = await engine.summarizeProject(parsed.project_id);
       return textResult({ summary });
     },
@@ -382,9 +414,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'find_duplicates',
     'Detect likely duplicate memories using Groq AI',
-    FindDuplicatesSchema.shape,
+    toolShape(FindDuplicatesSchema, hosted),
     async (args) => {
-      const parsed = FindDuplicatesSchema.parse(args);
+      const schema = withOptionalProjectId(FindDuplicatesSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const duplicates = await engine.findDuplicates(parsed.project_id, parsed.memory_id);
       return textResult({ duplicates });
     },
@@ -393,9 +426,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'extract_memories',
     'Extract structured memories from a conversation and save them to the project',
-    ExtractMemoriesSchema.shape,
+    toolShape(ExtractMemoriesSchema, hosted),
     async (args) => {
-      const parsed = ExtractMemoriesSchema.parse(args);
+      const schema = withOptionalProjectId(ExtractMemoriesSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const extracted = await engine.extractMemoriesFromConversation(
         parsed.project_id,
         parsed.conversation,
@@ -429,9 +463,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'ask_project',
     'Ask a natural-language question answered from project memories (Groq + search)',
-    AskProjectSchema.shape,
+    toolShape(AskProjectSchema, hosted),
     async (args) => {
-      const parsed = AskProjectSchema.parse(args);
+      const schema = withOptionalProjectId(AskProjectSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const result = await engine.askProject(parsed.project_id, parsed.question, parsed.limit);
       return textResult(result);
     },
@@ -440,9 +475,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'suggest_context',
     'Recommend which memories to load for a task, with a Groq narrative summary',
-    SuggestContextSchema.shape,
+    toolShape(SuggestContextSchema, hosted),
     async (args) => {
-      const parsed = SuggestContextSchema.parse(args);
+      const schema = withOptionalProjectId(SuggestContextSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const result = await engine.suggestContext(parsed.project_id, parsed.task_description, {
         openFiles: parsed.open_files,
         limit: parsed.limit,
@@ -454,9 +490,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'condense_memories',
     'Merge 2–5 overlapping memories into one (preview by default, pass save=true to apply)',
-    CondenseMemoriesSchema.shape,
+    toolShape(CondenseMemoriesSchema, hosted),
     async (args) => {
-      const parsed = CondenseMemoriesSchema.parse(args);
+      const schema = withOptionalProjectId(CondenseMemoriesSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const result = await engine.condenseMemories(parsed.project_id, parsed.memory_ids, {
         save: parsed.save,
       });
@@ -467,9 +504,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'suggest_relationships',
     'Suggest knowledge graph links for a memory using Groq',
-    SuggestRelationshipsSchema.shape,
+    toolShape(SuggestRelationshipsSchema, hosted),
     async (args) => {
-      const parsed = SuggestRelationshipsSchema.parse(args);
+      const schema = withOptionalProjectId(SuggestRelationshipsSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const result = await engine.suggestRelationships(parsed.project_id, parsed.memory_id);
       return textResult(result);
     },
@@ -478,9 +516,10 @@ export function registerTools(server: McpServer, engine: ContextEngine): void {
   server.tool(
     'extract_from_diff',
     'Extract learnings from a git diff (preview by default, pass save=true to store)',
-    ExtractFromDiffSchema.shape,
+    toolShape(ExtractFromDiffSchema, hosted),
     async (args) => {
-      const parsed = ExtractFromDiffSchema.parse(args);
+      const schema = withOptionalProjectId(ExtractFromDiffSchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
       if (parsed.save) {
         const extracted = await engine.extractFromDiff(parsed.project_id, parsed.diff);
         return textResult({ extracted });

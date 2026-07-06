@@ -1,6 +1,8 @@
 import {
   ContextLayer,
   MemoryStatus,
+  contextLayerFromDb,
+  contextLayerToDb,
   type Memory,
   type RememberInput,
   type ForgetMemoryInput,
@@ -37,7 +39,7 @@ function rowToMemory(row: {
     id: row.id,
     projectId: row.project_id,
     type: row.type as Memory['type'],
-    layer: row.layer as unknown as Memory['layer'],
+    layer: contextLayerFromDb(row.layer),
     title: row.title,
     content: row.content,
     summary: row.summary,
@@ -67,7 +69,7 @@ export function createMemoryRepository(client: NeuronSupabaseClient): MemoryRepo
         .insert({
           project_id: input.projectId,
           type: input.type,
-          layer: input.layer ?? ContextLayer.Project,
+          layer: contextLayerToDb(input.layer ?? ContextLayer.Project),
           title: input.title,
           content: input.content,
           confidence: input.confidence ?? 0.8,
@@ -101,7 +103,7 @@ export function createMemoryRepository(client: NeuronSupabaseClient): MemoryRepo
 
       if (filters?.types?.length) query = query.in('type', filters.types);
       if (filters?.status) query = query.eq('status', filters.status);
-      if (filters?.layer) query = query.eq('layer', filters.layer);
+      if (filters?.layer) query = query.eq('layer', contextLayerToDb(filters.layer));
       if (filters?.limit) query = query.limit(filters.limit);
       if (filters?.offset) query = query.range(filters.offset, filters.offset + (filters.limit ?? 50) - 1);
 

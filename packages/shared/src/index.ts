@@ -10,6 +10,8 @@ export {
   LAYER_PRIORITY,
 } from './constants.js';
 
+export { contextLayerToDb, contextLayerFromDb } from './context-layer.js';
+
 export type {
   BaseEntity,
   User,

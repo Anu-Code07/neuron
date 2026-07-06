@@ -1,5 +1,36 @@
 import { z } from 'zod';
 
+export type RegisterToolOptions = {
+  /** When set (hosted MCP), project_id is inferred from NEURON_API_KEY */
+  defaultProjectId?: string;
+};
+
+/** Make project_id optional in tool schemas for hosted MCP (key → project) */
+export function hostedSchema<T extends z.ZodObject<z.ZodRawShape>>(schema: T, hosted: boolean) {
+  if (!hosted) return schema;
+  return schema.extend({ project_id: z.string().uuid().optional() });
+}
+
+export function toolShape<T extends z.ZodObject<z.ZodRawShape>>(
+  schema: T,
+  hosted: boolean,
+): z.ZodRawShape {
+  return hostedSchema(schema, hosted).shape;
+}
+
+export function parseToolArgs<T extends { project_id?: string }>(
+  schema: z.ZodType<T>,
+  args: unknown,
+  defaultProjectId?: string,
+): T & { project_id: string } {
+  const parsed = schema.parse(args) as T;
+  const project_id = parsed.project_id ?? defaultProjectId;
+  if (!project_id) {
+    throw new Error('project_id is required');
+  }
+  return { ...parsed, project_id };
+}
+
 export const RememberSchema = z.object({
   project_id: z.string().uuid(),
   title: z.string().min(1).max(500),

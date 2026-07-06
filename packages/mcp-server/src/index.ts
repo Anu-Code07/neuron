@@ -14,11 +14,13 @@ import { runInit } from './cli/init.js';
 
 async function startServer() {
   let engine: ContextEngine;
+  let defaultProjectId: string | undefined;
 
   if (isHostedMode()) {
     const { apiKey, apiUrl } = getHostedConfig();
     const projectId = await resolveHostedProjectId(apiUrl, apiKey);
     engine = createHostedEngine(apiUrl, apiKey, projectId);
+    defaultProjectId = projectId;
     console.error(`Neuron MCP: hosted mode → ${apiUrl} (project ${projectId.slice(0, 8)}…)`);
   } else {
     const deps = resolveEngineDeps();
@@ -31,7 +33,7 @@ async function startServer() {
     version: '0.1.0',
   });
 
-  registerTools(server, engine);
+  registerTools(server, engine, { defaultProjectId });
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
