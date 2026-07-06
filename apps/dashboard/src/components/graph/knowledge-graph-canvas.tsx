@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { GraphMemory, GraphRelationship } from '@/lib/hooks/use-knowledge-graph';
 import { getMemoryTypeMeta, RELATIONSHIP_COLORS } from '@/lib/memory-theme';
+import { drawMemoryNode, getGraphMetaphor, nodeHitRadius } from './graph-node-visuals';
 
 interface SimNode {
   id: string;
@@ -50,7 +51,6 @@ export function KnowledgeGraphCanvas({
   const mouseRef = useRef({ x: -1, y: -1 });
   const hoveredRef = useRef<number>(-1);
   const dragRef = useRef<{ idx: number } | null>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const buildGraph = useCallback((w: number, h: number) => {
     const connectionCount = new Map<string, number>();
@@ -73,7 +73,7 @@ export function KnowledgeGraphCanvas({
         y: h / 2 + Math.sin(angle) * radius,
         vx: 0,
         vy: 0,
-        r: 6 + Math.min(connections, 6) * 1.8 + m.importance * 4,
+        r: 12 + Math.min(connections, 6) * 1.2 + m.importance * 5,
         importance: m.importance,
         connections,
       };
@@ -233,36 +233,45 @@ export function KnowledgeGraphCanvas({
         const isHovered = hovered === i;
         const isSelected = selectedIdx === i;
         const isHighlight = highlightIdx === i;
-        const pulse = isSelected || isHighlight ? 1 + Math.sin(tickRef.current * 0.08) * 0.15 : 1;
+        const active = isHovered || isSelected || isHighlight;
+        const pulse = active ? 1 + Math.sin(tickRef.current * 0.08) * 0.12 : 1;
         const radius = n.r * pulse;
 
-        const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, radius * 4);
-        glow.addColorStop(0, isHovered || isSelected ? meta.glow : `${meta.glow.replace('0.55', '0.25')}`);
-        glow.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = glow;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, radius * 4, 0, Math.PI * 2);
-        ctx.fill();
+        drawMemoryNode(n.type, {
+          ctx,
+          x: n.x,
+          y: n.y,
+          r: radius,
+          color: meta.color,
+          glow: meta.glow,
+          tick: tickRef.current,
+          active,
+        });
 
-        ctx.fillStyle = meta.color;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (isSelected || isHovered) {
-          ctx.strokeStyle = '#fafafa';
-          ctx.lineWidth = 2;
+        if (active) {
+          ctx.strokeStyle = 'rgba(250,250,250,0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, nodeHitRadius(n.type, radius), 0, Math.PI * 2);
           ctx.stroke();
         }
 
-        if (isHovered || isSelected || isHighlight) {
-          ctx.fillStyle = 'rgba(250,250,250,0.95)';
-          ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif';
+        const showLabel = active || nodes.length <= 8;
+        if (showLabel) {
+          const metaphor = getGraphMetaphor(n.type);
+          ctx.fillStyle = active ? 'rgba(250,250,250,0.95)' : 'rgba(250,250,250,0.55)';
+          ctx.font = active ? '600 11px ui-sans-serif, system-ui, sans-serif' : '500 10px ui-sans-serif, system-ui, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(n.label, n.x, n.y + radius + 14);
-          ctx.fillStyle = meta.color;
-          ctx.font = '500 9px ui-sans-serif, system-ui, sans-serif';
-          ctx.fillText(meta.label.toUpperCase(), n.x, n.y + radius + 26);
+          const labelY = n.y + nodeHitRadius(n.type, radius) + 12;
+          if (active) {
+            ctx.fillText(n.label, n.x, labelY);
+            ctx.fillStyle = meta.color;
+            ctx.font = '500 9px ui-sans-serif, system-ui, sans-serif';
+            ctx.fillText(`${metaphor.metaphor.toUpperCase()} · ${meta.label.toUpperCase()}`, n.x, labelY + 12);
+          } else {
+            ctx.fillStyle = `${meta.color}cc`;
+            ctx.fillText(metaphor.metaphor, n.x, labelY);
+          }
         }
       }
 
@@ -273,7 +282,7 @@ export function KnowledgeGraphCanvas({
       const nodes = nodesRef.current;
       for (let i = nodes.length - 1; i >= 0; i--) {
         const n = nodes[i];
-        if (Math.hypot(mx - n.x, my - n.y) < n.r + 8) return i;
+        if (Math.hypot(mx - n.x, my - n.y) < nodeHitRadius(n.type, n.r)) return i;
       }
       return -1;
     };
@@ -295,7 +304,6 @@ export function KnowledgeGraphCanvas({
 
       const idx = hitTest(mx, my);
       hoveredRef.current = idx;
-      setHoveredId(idx >= 0 ? nodesRef.current[idx].id : null);
       canvas.style.cursor = idx >= 0 ? 'pointer' : 'default';
     };
 

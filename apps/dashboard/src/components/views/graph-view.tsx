@@ -7,6 +7,8 @@ import { useKnowledgeGraph, type GraphMemory } from '@/lib/hooks/use-knowledge-g
 import { getMemoryTypeMeta } from '@/lib/memory-theme';
 import { useViewMode } from '@/lib/view-mode';
 import { KnowledgeGraphCanvas } from '@/components/graph/knowledge-graph-canvas';
+import { GraphLegend } from '@/components/graph/graph-legend';
+import { getGraphMetaphor } from '@/components/graph/graph-node-visuals';
 import { MemoryContent } from '@/components/ui/memory-content';
 import { MemoryJsonModal } from '@/components/ui/memory-json-modal';
 import { cn } from '@/lib/utils';
@@ -44,11 +46,11 @@ export function GraphView() {
         </div>
 
         {!isLoading && memories.length > 0 && (
-          <div className="hidden gap-2 sm:flex">
-            {['fact', 'decision', 'pattern', 'architecture', 'api'].map((type) => {
+          <div className="hidden max-w-[50%] flex-wrap justify-end gap-2 sm:flex">
+            {[...new Set(memories.map((m) => m.type))].map((type) => {
               const meta = getMemoryTypeMeta(type);
+              const metaphor = getGraphMetaphor(type);
               const count = memories.filter((m) => m.type === type).length;
-              if (!count) return null;
               return (
                 <span
                   key={type}
@@ -56,7 +58,7 @@ export function GraphView() {
                   style={{ color: meta.color }}
                 >
                   <span className="size-1.5 rounded-full" style={{ background: meta.color }} />
-                  {meta.label} {count}
+                  {metaphor.metaphor} {count}
                 </span>
               );
             })}
@@ -83,6 +85,10 @@ export function GraphView() {
           />
         )}
 
+        {!isLoading && memories.length > 0 && (
+          <GraphLegend types={memories.map((m) => m.type)} />
+        )}
+
         <AnimatePresence>
           {selected && (
             <GraphDetailPanel
@@ -98,7 +104,7 @@ export function GraphView() {
       <MemoryJsonModal memoryId={jsonMemoryId} onClose={() => setJsonMemoryId(null)} />
 
       <p className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 text-[11px] text-white/30">
-        Drag nodes · Click to inspect · Connections show memory relationships
+        Drag nodes · Click to inspect · Jellyfish = bugs · Thunder = architecture
       </p>
     </div>
   );
