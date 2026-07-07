@@ -37,7 +37,7 @@ async function startServer() {
 
   const server = new McpServer({
     name: 'neuron',
-    version: '0.1.10',
+    version: '0.1.11',
   });
 
   registerTools(server, engine, { defaultProjectId, defaultRepoTag: readNeuronRepoEnv() });

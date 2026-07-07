@@ -1,6 +1,6 @@
 {
   "name": "@neuron/mcp-server",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Neuron Context Engine — MCP server for Cursor, Claude, Antigravity, and any MCP client",
   "type": "module",
   "bin": {

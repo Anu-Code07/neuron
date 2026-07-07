@@ -346,7 +346,7 @@ export function getCheatsheet(section: CheatsheetSection = 'all') {
     section === 'all' ? ENTRIES : ENTRIES.filter((e) => e.section === section);
 
   return {
-    version: '0.1.10',
+    version: '0.1.11',
     /** Read this first — optimized for Cursor / Claude agents */
     forAgents: getAgentInstructions(),
     requiredFirstSteps: [

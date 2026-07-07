@@ -24,9 +24,20 @@ interface InitOptions {
   projectId?: string;
 }
 
+export type McpConfigFormat = 'cursor' | 'claude-cli';
+
 export interface McpInstallTarget {
   label: string;
   path: string;
+  format: McpConfigFormat;
+}
+
+export function claudeCliUserConfigPath(): string {
+  return join(homedir(), '.claude.json');
+}
+
+export function claudeCliProjectConfigPath(cwd = process.cwd()): string {
+  return join(cwd, '.mcp.json');
 }
 
 export function claudeDesktopConfigPath(): string {
@@ -50,13 +61,35 @@ export function resolveMcpInstallTargets(opts: InitOptions): McpInstallTarget[] 
   const targets: McpInstallTarget[] = [];
 
   if (opts.project) {
-    targets.push({ label: 'Cursor (this repo)', path: join(process.cwd(), '.cursor', 'mcp.json') });
+    targets.push({
+      label: 'Cursor (this repo)',
+      path: join(process.cwd(), '.cursor', 'mcp.json'),
+      format: 'cursor',
+    });
+    targets.push({
+      label: 'Claude Code (this repo)',
+      path: claudeCliProjectConfigPath(),
+      format: 'claude-cli',
+    });
   }
   if (includeCursor) {
-    targets.push({ label: 'Cursor', path: join(homedir(), '.cursor', 'mcp.json') });
+    targets.push({
+      label: 'Cursor',
+      path: join(homedir(), '.cursor', 'mcp.json'),
+      format: 'cursor',
+    });
   }
   if (includeClaude) {
-    targets.push({ label: 'Claude Desktop', path: claudeDesktopConfigPath() });
+    targets.push({
+      label: 'Claude Desktop',
+      path: claudeDesktopConfigPath(),
+      format: 'cursor',
+    });
+    targets.push({
+      label: 'Claude Code (user)',
+      path: claudeCliUserConfigPath(),
+      format: 'claude-cli',
+    });
   }
 
   return targets;
@@ -87,8 +120,8 @@ function missingKeyMessage(): string {
     `  npx ${NPX_PACKAGE} init --api-key nrn_your_key_here\n\n` +
     'Or run without flags and paste your key when prompted:\n\n' +
     `  npx ${NPX_PACKAGE} init\n\n` +
-    'By default, config is written for Cursor and Claude Desktop.\n' +
-    'Use --cursor or --claude to target one client only.'
+    'By default, config is written for Cursor, Claude Desktop, and Claude Code CLI.\n' +
+    'Use --cursor or --claude to target one client family only.'
   );
 }
 
@@ -194,13 +227,33 @@ function mergeMcpJson(existing: Record<string, unknown>, neuronConfig: unknown) 
   return { ...existing, mcpServers: { ...servers, neuron: neuronConfig } };
 }
 
-function writeMcpConfig(targetPath: string, neuronConfig: unknown) {
-  mkdirSync(dirname(targetPath), { recursive: true });
-  let existing: Record<string, unknown> = {};
-  if (existsSync(targetPath)) {
-    existing = JSON.parse(readFileSync(targetPath, 'utf8')) as Record<string, unknown>;
+function readJsonConfig(targetPath: string): Record<string, unknown> {
+  if (!existsSync(targetPath)) return {};
+  const raw = readFileSync(targetPath, 'utf8').trim();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Cannot read ${targetPath} — invalid JSON (${detail}).\n` +
+        'Fix or delete that file, then run init again.',
+    );
   }
-  const merged = mergeMcpJson(existing, neuronConfig);
+}
+
+function wrapClaudeCliConfig(config: Record<string, unknown>): Record<string, unknown> {
+  return { type: 'stdio', ...config };
+}
+
+function writeMcpConfig(targetPath: string, neuronConfig: unknown, format: McpConfigFormat) {
+  mkdirSync(dirname(targetPath), { recursive: true });
+  const existing = readJsonConfig(targetPath);
+  const entry =
+    format === 'claude-cli'
+      ? wrapClaudeCliConfig(neuronConfig as Record<string, unknown>)
+      : neuronConfig;
+  const merged = mergeMcpJson(existing, entry);
   writeFileSync(targetPath, `${JSON.stringify(merged, null, 2)}\n`);
 }
 
@@ -233,13 +286,13 @@ export async function runInit(argv: string[]): Promise<void> {
     throw new Error('No install targets. Use --cursor and/or --claude (default: both).');
   }
 
-  for (const { label, path } of targets) {
+  for (const { label, path, format } of targets) {
     const neuronConfig = apiKey
       ? buildHostedConfig(apiKey, opts.apiUrl, mcpClientForTarget(label), opts)
       : hasDirect
         ? buildDirectConfig(opts)
         : (() => { throw new Error(missingKeyMessage()); })();
-    writeMcpConfig(path, neuronConfig);
+    writeMcpConfig(path, neuronConfig, format);
     console.log(`✓ ${label} → ${path}`);
   }
 
@@ -251,6 +304,7 @@ export async function runInit(argv: string[]): Promise<void> {
   console.log('\nRestart your MCP client(s), then confirm "neuron" is connected.');
   console.log('  • Cursor: Settings → MCP');
   console.log('  • Claude Desktop: quit fully and reopen the app');
-  console.log('\nFlags: --cursor · --claude · --project (repo-local mcp.json + NEURON_REPO)');
-  console.log('       --repo <name> · default installs both Cursor + Claude');
+  console.log('  • Claude Code CLI: restart session, then run `claude mcp list`');
+  console.log('\nFlags: --cursor · --claude · --project (repo .cursor/mcp.json + .mcp.json + NEURON_REPO)');
+  console.log('       --repo <name> · default installs Cursor + Claude Desktop + Claude Code');
 }
