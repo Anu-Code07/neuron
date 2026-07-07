@@ -13,6 +13,7 @@ import {
   type RememberInput,
   type WorkspaceContextPacket,
   type WorkspaceScope,
+  type SessionInsights,
   normalizeRepoTag,
 } from '@neuron/shared';
 
@@ -23,34 +24,79 @@ import {
   answerFromMemories,
   condenseMemoriesWithLlm,
   enhanceContextNarrative,
+  enrichBugMemory,
   extractMemoriesFromDiff,
   extractMemoriesFromText,
   findDuplicateCandidates,
+  generateHypotheticalMemory,
   generateMemorySummary,
+  inferSessionContext,
   suggestMemoryTags,
+  rewriteSearchQuery,
   suggestRelationshipEdges,
   summarizeMemoriesWithLlm,
+  synthesizeRetrievalBrief,
+  titleSweepMemories,
   type CondensedMemoryDraft,
   type ExtractedMemoryDraft,
 } from './ai/llm-tasks.js';
 import { rerankMemoriesWithLlm } from './ai/llm-rerank.js';
+import {
+  applyTitleSweepBoost,
+  isWeakSearchResult,
+  mergeSemanticScores,
+} from './retrieval/search-pipeline.js';
 
 const DEFAULT_TOKEN_BUDGET = 4000;
 
 export class ContextEngine {
   constructor(private readonly deps: ContextEngineDeps) {}
 
-  /** Store a new memory with optional relationships and embedding */
+  /** Store a new memory with optional relationships, Groq enrichment, and embedding */
   async remember(input: RememberInput): Promise<Memory> {
-    const memory = await this.deps.memories.create({
+    let metadata = { ...(input.metadata ?? {}) };
+    let tags = [...(input.tags ?? [])];
+    let content = input.content;
+
+    if (this.deps.llm && input.type === MemoryType.Bug) {
+      try {
+        const enrichment = await enrichBugMemory(
+          this.deps.llm,
+          input.title,
+          input.content,
+          metadata,
+        );
+        metadata = {
+          ...metadata,
+          aliases: enrichment.aliases,
+          relatedFiles: enrichment.relatedFiles,
+          ...(enrichment.severity && !metadata.severity ? { severity: enrichment.severity } : {}),
+          ...(enrichment.status && !metadata.status ? { status: enrichment.status } : {}),
+        };
+        const aliasTags = enrichment.aliases.map((a) =>
+          a.toLowerCase().replace(/[^\w]+/g, '-').replace(/^-|-$/g, ''),
+        );
+        tags = [...new Set([...tags, ...aliasTags.filter(Boolean)])];
+        if (enrichment.aliases.length) {
+          content = `${content}\n\nAlso known as: ${enrichment.aliases.join(', ')}`;
+        }
+      } catch (err) {
+        console.warn('Bug enrichment skipped:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    let memory = await this.deps.memories.create({
       ...input,
+      content,
+      tags,
+      metadata,
       layer: input.layer ?? ContextLayer.Project,
       confidence: input.confidence ?? 0.8,
       importance: input.importance ?? 0.5,
     });
 
-    if (input.tags?.length && this.deps.workspaceRepos) {
-      const repoTag = input.tags.find((t) => t.startsWith('repo:'));
+    if (tags.length && this.deps.workspaceRepos) {
+      const repoTag = tags.find((t) => t.startsWith('repo:'));
       if (repoTag) {
         await this.deps.workspaceRepos.ensureRegistered(
           input.projectId,
@@ -70,10 +116,13 @@ export class ContextEngine {
       }
     }
 
+    const aliasText = (metadata.aliases as string[] | undefined)?.join(' ') ?? '';
+    const filesText = (metadata.relatedFiles as string[] | undefined)?.join(' ') ?? '';
+    const embedText = `${memory.title}\n${memory.content}\n${aliasText}\n${filesText}`.trim();
+
     if (this.deps.embeddingProvider) {
       try {
-        const text = `${memory.title}\n${memory.content}`;
-        const vector = await this.deps.embeddingProvider.embed(text);
+        const vector = await this.deps.embeddingProvider.embed(embedText);
         await this.deps.embeddings.create(
           memory.id,
           input.projectId,
@@ -88,10 +137,10 @@ export class ContextEngine {
     if (this.deps.llm && !memory.summary) {
       try {
         const summary = await generateMemorySummary(this.deps.llm, memory.title, memory.content);
-        const tags = input.tags?.length
-          ? input.tags
-          : await suggestMemoryTags(this.deps.llm, memory.title, memory.content);
-        return await this.deps.memories.update(memory.id, { summary, tags });
+        const suggestedTags = input.tags?.length
+          ? tags
+          : [...new Set([...tags, ...(await suggestMemoryTags(this.deps.llm, memory.title, memory.content))])];
+        memory = await this.deps.memories.update(memory.id, { summary, tags: suggestedTags });
       } catch (err) {
         console.warn('AI memory enrichment skipped:', err instanceof Error ? err.message : err);
       }
@@ -158,6 +207,23 @@ export class ContextEngine {
     };
   }
 
+  private async vectorSearch(
+    projectId: string,
+    text: string,
+    limit: number,
+  ): Promise<Map<string, number>> {
+    if (!this.deps.embeddingProvider || !text.trim()) return new Map();
+
+    try {
+      const queryVector = await this.deps.embeddingProvider.embed(text);
+      const vectorResults = await this.deps.embeddings.search(projectId, queryVector, limit);
+      return new Map(vectorResults.map((r) => [r.memoryId, r.similarity]));
+    } catch (err) {
+      console.warn('Vector search skipped:', err instanceof Error ? err.message : err);
+      return new Map();
+    }
+  }
+
   private async searchProjectMemories(
     projectId: string,
     query: string,
@@ -168,7 +234,26 @@ export class ContextEngine {
       limit?: number;
     },
   ) {
-    const keywords = extractKeywords(query);
+    let effectiveQuery = query;
+    let types = options?.types;
+    let extraKeywords: string[] = [];
+
+    if (this.deps.llm && query.trim()) {
+      try {
+        const rewritten = await rewriteSearchQuery(this.deps.llm, query);
+        effectiveQuery = rewritten.searchQuery;
+        if (!types?.length && rewritten.types?.length) {
+          types = rewritten.types;
+        }
+        extraKeywords = rewritten.extraKeywords ?? [];
+      } catch (err) {
+        console.warn('Query rewrite skipped:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    const keywords = [
+      ...new Set([...extractKeywords(effectiveQuery), ...extraKeywords.map((k) => k.toLowerCase())]),
+    ];
     const signals = {
       queryKeywords: keywords,
       seedMemoryIds: [] as string[],
@@ -176,28 +261,53 @@ export class ContextEngine {
       openFiles: [] as string[],
     };
 
+    const searchLimit = Math.max(options?.limit ?? 20, 30);
     let semanticScores = new Map<string, number>();
 
-    if (this.deps.embeddingProvider && query) {
-      const queryVector = await this.deps.embeddingProvider.embed(query);
-      const vectorResults = await this.deps.embeddings.search(
-        projectId,
-        queryVector,
-        options?.limit ?? 20,
-      );
-      semanticScores = new Map(vectorResults.map((r) => [r.memoryId, r.similarity]));
+    if (this.deps.embeddingProvider && effectiveQuery) {
+      const directScores = await this.vectorSearch(projectId, effectiveQuery, searchLimit);
+
+      let hydeScores = new Map<string, number>();
+      if (this.deps.llm) {
+        try {
+          const hypothetical = await generateHypotheticalMemory(
+            this.deps.llm,
+            query,
+            effectiveQuery,
+          );
+          hydeScores = await this.vectorSearch(projectId, hypothetical, searchLimit);
+        } catch (err) {
+          console.warn('HyDE search skipped:', err instanceof Error ? err.message : err);
+        }
+      }
+
+      semanticScores = mergeSemanticScores(directScores, hydeScores);
     }
 
     const memories = await this.deps.memories.findByProject(projectId, {
-      types: options?.types,
+      types,
       tags: options?.tags,
       requiredRepoTag: options?.requiredRepoTag,
       status: MemoryStatus.Active,
-      limit: 100,
+      limit: 150,
     });
 
     let results = rankMemories(memories, signals, semanticScores);
     const limit = options?.limit ?? 20;
+
+    if (this.deps.llm && query.trim() && isWeakSearchResult(results)) {
+      try {
+        const sweptIds = await titleSweepMemories(
+          this.deps.llm,
+          query,
+          memories.map((m) => ({ id: m.id, title: m.title, summary: m.summary })),
+          limit,
+        );
+        results = applyTitleSweepBoost(results, memories, sweptIds);
+      } catch (err) {
+        console.warn('Title sweep skipped:', err instanceof Error ? err.message : err);
+      }
+    }
 
     if (this.deps.llm && query.trim()) {
       try {
@@ -219,6 +329,49 @@ export class ContextEngine {
       results,
       totalCount: results.length,
       query,
+      rewrittenQuery: effectiveQuery !== query ? effectiveQuery : undefined,
+    };
+  }
+
+  /** Fuzzy memory finder — Groq search + token-efficient cards + optional brief */
+  async findMemory(
+    projectId: string,
+    query: string,
+    options?: {
+      types?: string[];
+      tags?: string[];
+      requiredRepoTag?: string;
+      includeLinkedProjects?: boolean;
+      limit?: number;
+      withBrief?: boolean;
+    },
+  ) {
+    const search = await this.searchMemory(projectId, query, options);
+    const hits = search.results.map((r) => ({
+      id: r.memory.id,
+      type: r.memory.type,
+      title: r.memory.title,
+      summary: r.memory.summary ?? r.memory.content.slice(0, 280),
+      score: Math.round(r.score * 100) / 100,
+      tags: r.memory.tags?.slice(0, 6),
+    }));
+
+    let brief: string | undefined;
+    if (options?.withBrief !== false && this.deps.llm && hits.length) {
+      try {
+        brief = await synthesizeRetrievalBrief(this.deps.llm, query, hits);
+      } catch (err) {
+        console.warn('Retrieval brief skipped:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    return {
+      query: search.query,
+      brief,
+      count: hits.length,
+      hits,
+      linkedProjects:
+        'linkedProjectsSearched' in search ? search.linkedProjectsSearched : undefined,
     };
   }
 
@@ -766,6 +919,40 @@ export class ContextEngine {
       hints.push('Run register_repo or set NEURON_REPO to auto-register repos in this project.');
     }
 
-    return { scope, primary, linked, hints };
+    let sessionInsights: SessionInsights | undefined;
+    const userFocus = query.query ?? query.taskDescription;
+    if (userFocus && this.deps.llm) {
+      try {
+        const presearch = await this.searchProjectMemories(query.projectId, userFocus, {
+          tags: query.tags,
+          requiredRepoTag: query.requiredRepoTag,
+          limit: 5,
+        });
+        const inference = await inferSessionContext(
+          this.deps.llm,
+          userFocus,
+          presearch.results.map((r) => ({
+            title: r.memory.title,
+            type: r.memory.type,
+            summary: r.memory.summary,
+          })),
+        );
+        sessionInsights = {
+          inferredTask: inference.inferredTask,
+          relevantMemories: presearch.results.map((r) => ({
+            id: r.memory.id,
+            title: r.memory.title,
+            type: r.memory.type,
+            summary: r.memory.summary,
+            score: r.score,
+          })),
+          warnings: inference.warnings,
+        };
+      } catch (err) {
+        console.warn('Session insights skipped:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    return { scope, primary, linked, hints, sessionInsights };
   }
 }

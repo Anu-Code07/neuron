@@ -2,7 +2,7 @@
 
 Neuron Context Engine MCP server — structured memory for Cursor, Claude Desktop, Antigravity, and any MCP client.
 
-**npm:** `@anuraghq/neuron-mcp-server@0.1.4`
+**npm:** `@anuraghq/neuron-mcp-server@0.2.0`
 
 ## One-command install
 

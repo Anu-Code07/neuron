@@ -66,9 +66,22 @@ export interface LinkedProjectContext {
   }>;
 }
 
+export interface SessionInsights {
+  inferredTask?: string;
+  relevantMemories: Array<{
+    id: string;
+    title: string;
+    type: string;
+    summary?: string | null;
+    score: number;
+  }>;
+  warnings: string[];
+}
+
 export interface WorkspaceContextPacket {
   scope: WorkspaceScope;
   primary: import('./context.js').ContextPacket;
   linked: LinkedProjectContext[];
   hints: string[];
+  sessionInsights?: SessionInsights;
 }

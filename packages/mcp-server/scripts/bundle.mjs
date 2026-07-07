@@ -9,7 +9,7 @@ await esbuild.build({
   format: 'esm',
   outfile: 'dist/index.js',
   banner: { js: '#!/usr/bin/env node' },
-  external: ['dotenv'],
+  external: ['dotenv', '@xenova/transformers', 'onnxruntime-node', 'sharp'],
   minify: false,
   sourcemap: true,
 });

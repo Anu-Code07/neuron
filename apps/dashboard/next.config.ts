@@ -15,6 +15,7 @@ const workspaceAliases = {
 const nextConfig: NextConfig = {
   transpilePackages: ['@neuron/shared', '@neuron/context-engine', '@neuron/supabase'],
   outputFileTracingRoot: monorepoRoot,
+  serverExternalPackages: ['@xenova/transformers', 'onnxruntime-node'],
   experimental: {
     externalDir: true,
   },

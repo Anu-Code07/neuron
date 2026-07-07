@@ -7,21 +7,32 @@ You are connected to Neuron — persistent project memory via MCP.
 
 ## Required session start (do this first)
 1. Call tool `cheatsheet` with { "section": "start" }
-2. Call tool `get_workspace_context` (optionally pass query or task_description)
+2. Call tool `get_workspace_context` with task_description or query for your current work
 
 ## When to use which tool
 | Your goal | Call this |
 |-----------|-----------|
 | Unsure what Neuron can do | cheatsheet |
-| Map repos, links, loaded context | get_workspace_context |
-| Find past bugs, decisions, facts | search_memory or ask_project |
-| About to implement a task | get_task_context |
+| Start session / map repos | get_workspace_context (pass task_description) |
+| Fuzzy lookup ("get the X bug") | find_memory |
+| Filtered search by type/tags | search_memory |
+| Ask a question in prose | ask_project |
+| About to implement a task | get_task_context or suggest_context |
 | Working in one file | get_file_context |
-| Found a bug | remember_bug |
+| Found a bug | remember_bug (Groq adds search aliases on save) |
 | Made an architecture decision | remember_decision |
 | Learned a stable fact | remember_fact |
 | Host code depends on package/SDK | remember_relationship (type: depends_on) |
 | Wrong or unrelated memory | forget_memory |
+
+## Token efficiency (important)
+- Responses default to format=brief — Groq summary + compact memory cards, not full JSON blobs
+- Use format=compact to skip Groq brief; format=full only when you need raw content/scores
+- Do NOT ask for full memories unless necessary — brief hits include id, title, summary
+
+## MCP client config (your mcp.json)
+- NEURON_API_KEY + NEURON_API_URL only — Groq/embeddings run on Neuron server, not in Cursor
+- Optional: NEURON_REPO to scope memories to one repo in a monorepo
 
 ## Monorepo (host + package in one project)
 - NEURON_REPO env scopes memories to this repo (auto-tagged repo:<slug>)

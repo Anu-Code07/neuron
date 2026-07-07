@@ -76,6 +76,8 @@ export const RememberRelationshipSchema = z.object({
   ]),
 });
 
+export const ResponseFormatSchema = z.enum(['brief', 'compact', 'full']).optional();
+
 export const SearchMemorySchema = z.object({
   project_id: z.string().uuid(),
   query: z.string().min(1),
@@ -83,6 +85,17 @@ export const SearchMemorySchema = z.object({
   tags: z.array(z.string()).optional(),
   include_linked_projects: z.boolean().optional(),
   limit: z.number().min(1).max(50).optional(),
+  format: ResponseFormatSchema,
+});
+
+export const FindMemorySchema = z.object({
+  project_id: z.string().uuid(),
+  query: z.string().min(1),
+  types: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  include_linked_projects: z.boolean().optional(),
+  limit: z.number().min(1).max(20).optional(),
+  format: ResponseFormatSchema,
 });
 
 export const GetProjectContextSchema = z.object({
@@ -94,6 +107,7 @@ export const GetProjectContextSchema = z.object({
   token_budget: z.number().min(500).max(32000).optional(),
   tags: z.array(z.string()).optional(),
   include_linked_projects: z.boolean().optional(),
+  format: ResponseFormatSchema,
 });
 
 export const GetWorkspaceContextSchema = GetProjectContextSchema.extend({
@@ -146,6 +160,7 @@ export const GetTaskContextSchema = z.object({
   open_files: z.array(z.string()).optional(),
   token_budget: z.number().min(500).max(32000).optional(),
   tags: z.array(z.string()).optional(),
+  format: ResponseFormatSchema,
 });
 
 export const GetFileContextSchema = z.object({
@@ -196,6 +211,7 @@ export const AskProjectSchema = z.object({
   project_id: z.string().uuid(),
   question: z.string().min(1).max(2000),
   limit: z.number().min(1).max(20).optional(),
+  format: ResponseFormatSchema,
 });
 
 export const SuggestContextSchema = z.object({

@@ -25,22 +25,28 @@ export interface CheatsheetEntry {
 
 const WORKFLOW = {
   sessionStart: [
-    '1. cheatsheet — read this guide (section: start)',
-    '2. get_workspace_context — map repos, links, and scoped memories',
-    '3. search_memory — find anything relevant to the current task',
+    '1. cheatsheet — read this guide (section: "start")',
+    '2. get_workspace_context — pass task_description or query; Groq infers task + preloads memories',
+    '3. find_memory — fuzzy lookup ("get the bus yellow strip bug"); returns brief + cards',
   ],
   beforeCoding: [
-    'get_task_context or get_file_context — load focused context',
-    'suggest_context — let Neuron recommend which memories matter',
+    'get_task_context or get_file_context — load focused context (format=brief by default)',
+    'suggest_context — Groq narrative + recommended memories',
   ],
   afterLearning: [
     'remember_decision / remember_bug / remember_fact — persist what you learned',
+    'remember_bug auto-enriches with Groq aliases + related files for better search later',
     'remember_relationship — link host code to package/SDK memories',
   ],
   monorepo: [
     'NEURON_REPO env scopes memories per repo (host vs package)',
     'register_repo — register repos under one Neuron project',
     'link_project — connect separate projects (host depends_on package)',
+  ],
+  tokenSaving: [
+    'Default format=brief — Groq summary + compact cards, not full memory blobs',
+    'Use format=compact to skip Groq brief; format=full only when you need raw scores/content',
+    'Prefer find_memory over search_memory for conversational queries',
   ],
 };
 
@@ -58,9 +64,9 @@ const ENTRIES: CheatsheetEntry[] = [
       },
       {
         name: 'get_workspace_context',
-        when: 'Best first call — understand repos, project links, and repo-scoped context',
-        returns: 'scope (repos + links), primary context packet, linked project highlights, hints',
-        tips: 'Prefer this over get_project_context when NEURON_REPO or linked projects are in play',
+        when: 'Best first call — repos, links, scoped context, Groq session insights',
+        returns: 'brief (default): task, warnings, memory cards; sessionInsights when query/task_description set',
+        tips: 'Pass task_description: "fix bus yellow strip" — Groq preloads relevant memories + past-bug warnings',
       },
       {
         name: 'list_repos',
@@ -97,8 +103,8 @@ const ENTRIES: CheatsheetEntry[] = [
       {
         name: 'remember_bug',
         when: 'Bug found — include severity, status, reproduction steps',
-        returns: 'Bug memory',
-        tips: 'Use when user reports SDK/UI bugs you want to recall later',
+        returns: 'Bug memory (compact: { ok, id, title })',
+        tips: 'Groq auto-adds search aliases + relatedFiles on save — e.g. "yellow strip" finds this later',
       },
       {
         name: 'remember_component',
@@ -145,18 +151,26 @@ const ENTRIES: CheatsheetEntry[] = [
   {
     section: 'search',
     title: 'Find knowledge (read)',
-    description: 'Hybrid vector + keyword + graph search. Includes linked projects by default.',
+    description:
+      'Groq-powered hybrid search: query rewrite → local embeddings → HyDE → title sweep → rerank. Default format=brief saves tokens.',
     tools: [
       {
+        name: 'find_memory',
+        when: 'Fuzzy natural-language lookup — best for "get the bus yellow strip bug"',
+        returns: '{ query, brief, count, hits[] } — Groq brief + compact memory cards',
+        tips: 'Best tool for conversational queries. format=compact skips Groq brief',
+      },
+      {
         name: 'search_memory',
-        when: 'Look up anything — bugs, decisions, past work, keywords',
-        returns: 'Ranked memories; linkedProjectsSearched when cross-project',
-        tips: 'Set include_linked_projects: false to scope to current project only',
+        when: 'Keyword or filtered lookup — bugs, decisions, types, tags',
+        returns: 'format=brief (default): Groq summary + cards; format=full: raw scored memories',
+        tips: 'include_linked_projects: false scopes to current project. Pipeline runs on server automatically',
       },
       {
         name: 'ask_project',
-        when: 'Natural-language question answered from memories (Groq + search)',
-        returns: 'answer + source memories',
+        when: 'Need a prose answer, not just memory cards',
+        returns: '{ answer, sources[] } — Groq answers from retrieved memories',
+        tips: 'Use when user asks a question; find_memory when you need structured hits',
       },
       {
         name: 'find_related',
@@ -173,17 +187,18 @@ const ENTRIES: CheatsheetEntry[] = [
   {
     section: 'context',
     title: 'Assemble context packets',
-    description: 'Compressed, AI-ready bundles for the current work.',
+    description: 'Compressed, AI-ready bundles. All read tools accept format: brief | compact | full (default brief).',
     tools: [
       {
         name: 'get_project_context',
         when: 'Need decisions, bugs, facts, APIs in one packet for the model',
-        returns: 'Context packet + workspace + linkedProjects + hints',
+        returns: 'format=brief: compact workspace summary; format=full: full context packet',
       },
       {
         name: 'get_task_context',
         when: 'Focused on a specific task description',
-        returns: 'Task-layer context packet',
+        returns: 'Task-layer context — Groq narrative when GROQ_API_KEY set on server',
+        tips: 'Pass format=brief (default) to save tokens in Cursor/Claude context',
       },
       {
         name: 'get_file_context',
@@ -256,9 +271,22 @@ const ENTRIES: CheatsheetEntry[] = [
   },
   {
     section: 'ai',
-    title: 'AI extraction (Groq)',
-    description: 'Requires GROQ_API_KEY on Neuron backend.',
+    title: 'AI layer (Groq + embeddings)',
+    description:
+      'Server-side only (Vercel env). MCP clients need only NEURON_API_KEY — no Groq key in Cursor config.',
     tools: [
+      {
+        name: '(retrieval pipeline)',
+        when: 'Runs automatically on search_memory / find_memory',
+        returns: 'Query rewrite → local embeddings → HyDE → title sweep → Groq rerank',
+        tips: 'Requires GROQ_API_KEY on server. NEURON_EMBEDDINGS=local (default) for in-process vectors',
+      },
+      {
+        name: '(response format)',
+        when: 'Control token usage returned to Cursor/Claude',
+        returns: 'brief (default) | compact | full — set via tool arg or NEURON_MCP_FORMAT on server',
+        tips: 'brief = Groq summary + id/title/summary cards. Never put GROQ_API_KEY in mcp.json',
+      },
       {
         name: 'extract_memories',
         when: 'Paste a long conversation and save extracted memories',
@@ -311,21 +339,32 @@ export function getAgentInstructions(): string {
 
 ## Required session start (do this first)
 1. Call tool \`cheatsheet\` with { "section": "start" }
-2. Call tool \`get_workspace_context\` (optionally pass query or task_description)
+2. Call tool \`get_workspace_context\` with task_description or query for your current work
 
 ## When to use which tool
 | Your goal | Call this |
 |-----------|-----------|
 | Unsure what Neuron can do | cheatsheet |
-| Map repos, links, loaded context | get_workspace_context |
-| Find past bugs, decisions, facts | search_memory or ask_project |
-| About to implement a task | get_task_context |
+| Start session / map repos | get_workspace_context (pass task_description) |
+| Fuzzy lookup ("get the X bug") | find_memory |
+| Filtered search by type/tags | search_memory |
+| Ask a question in prose | ask_project |
+| About to implement a task | get_task_context or suggest_context |
 | Working in one file | get_file_context |
-| Found a bug | remember_bug |
+| Found a bug | remember_bug (Groq adds search aliases on save) |
 | Made an architecture decision | remember_decision |
 | Learned a stable fact | remember_fact |
 | Host code depends on package/SDK | remember_relationship (type: depends_on) |
 | Wrong or unrelated memory | forget_memory |
+
+## Token efficiency (important)
+- Responses default to format=brief — Groq summary + compact memory cards, not full JSON blobs
+- Use format=compact to skip Groq brief; format=full only when you need raw content/scores
+- Do NOT ask for full memories unless necessary — brief hits include id, title, summary
+
+## MCP client config (your mcp.json)
+- NEURON_API_KEY + NEURON_API_URL only — Groq/embeddings run on Neuron server, not in Cursor
+- Optional: NEURON_REPO to scope memories to one repo in a monorepo
 
 ## Monorepo (host + package in one project)
 - NEURON_REPO env scopes memories to this repo (auto-tagged repo:<slug>)
@@ -346,25 +385,40 @@ export function getCheatsheet(section: CheatsheetSection = 'all') {
     section === 'all' ? ENTRIES : ENTRIES.filter((e) => e.section === section);
 
   return {
-    version: '0.1.11',
+    version: '0.2.0',
     /** Read this first — optimized for Cursor / Claude agents */
     forAgents: getAgentInstructions(),
     requiredFirstSteps: [
       'cheatsheet(section: "start")',
-      'get_workspace_context',
+      'get_workspace_context(task_description: "<what you are working on>")',
     ],
     tagline: 'Neuron — persistent memory for Cursor, Claude, and MCP clients',
     env: {
-      NEURON_API_KEY: 'Required — authenticates MCP to your Neuron project',
-      NEURON_API_URL: 'Hosted API (default: neuron-azure.vercel.app)',
-      NEURON_REPO: 'Scopes read/write to one repo in a monorepo (auto-tagged as repo:<slug>)',
-      NEURON_PROJECT_ID: 'Optional — override which project the API key targets',
-      NEURON_MCP_CLIENT: 'Set automatically: cursor | claude',
+      client: {
+        NEURON_API_KEY: 'Required — authenticates MCP to your Neuron project',
+        NEURON_API_URL: 'Hosted API (default: neuron-azure.vercel.app)',
+        NEURON_REPO: 'Scopes read/write to one repo in a monorepo (auto-tagged as repo:<slug>)',
+        NEURON_MCP_CLIENT: 'Set automatically: cursor | claude',
+      },
+      server: {
+        GROQ_API_KEY: 'Required on Vercel — powers query rewrite, HyDE, rerank, briefs (never in mcp.json)',
+        NEURON_EMBEDDINGS: 'local (default) | off | huggingface — in-process semantic search',
+        NEURON_MCP_FORMAT: 'brief (default) | compact | full — default response size for agents',
+      },
     },
+    retrievalPipeline: [
+      '1. Groq query rewrite — strips filler, infers types, adds synonyms',
+      '2. Local embeddings — semantic similarity (no external API key)',
+      '3. HyDE — Groq writes hypothetical memory, embed for better match',
+      '4. Title sweep — if weak results, Groq scans all memory titles',
+      '5. Groq rerank — final relevance pass',
+    ],
     workflow: WORKFLOW,
     decisionTree: [
-      { if: 'New session or confused', then: 'cheatsheet → get_workspace_context' },
-      { if: 'Need to find something', then: 'search_memory or ask_project' },
+      { if: 'New session or confused', then: 'cheatsheet → get_workspace_context(task_description)' },
+      { if: 'Fuzzy / conversational lookup', then: 'find_memory' },
+      { if: 'Filtered search by type/tags', then: 'search_memory' },
+      { if: 'Need prose answer', then: 'ask_project' },
       { if: 'About to implement a task', then: 'get_task_context or suggest_context' },
       { if: 'Editing one file', then: 'get_file_context' },
       { if: 'Learned something important', then: 'remember_decision | remember_bug | remember_fact' },
@@ -372,6 +426,7 @@ export function getCheatsheet(section: CheatsheetSection = 'all') {
       { if: 'Monorepo host + package', then: 'register_repo + NEURON_REPO per Cursor workspace' },
       { if: 'Separate Neuron projects', then: 'link_project type depends_on' },
       { if: 'Wrong/stray memory', then: 'forget_memory' },
+      { if: 'Need raw memory bodies/scores', then: 'pass format: "full" to any read tool' },
     ],
     sections: filtered,
     toolCount: ENTRIES.reduce((n, e) => n + e.tools.length, 0),

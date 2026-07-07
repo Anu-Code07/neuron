@@ -206,6 +206,18 @@ export async function POST(request: Request) {
       }
       case 'search_memory': {
         const scope = readScope(request, args.tags);
+        const fmt = (args.format as string) ?? process.env.NEURON_MCP_FORMAT ?? 'brief';
+        if (fmt === 'brief') {
+          const found = await engine.findMemory(projectId, args.query, {
+            types: args.types,
+            tags: scope.overlapTags,
+            requiredRepoTag: scope.requiredRepoTag,
+            includeLinkedProjects: args.include_linked_projects !== false,
+            limit: args.limit,
+            withBrief: true,
+          });
+          return NextResponse.json(found);
+        }
         const results = await engine.searchMemory(projectId, args.query, {
           types: args.types,
           tags: scope.overlapTags,
@@ -213,7 +225,24 @@ export async function POST(request: Request) {
           includeLinkedProjects: args.include_linked_projects !== false,
           limit: args.limit,
         });
+        if (fmt === 'compact') {
+          const { compactSearchResult } = await import('@neuron/shared');
+          return NextResponse.json(compactSearchResult(results));
+        }
         return NextResponse.json(results);
+      }
+      case 'find_memory': {
+        const scope = readScope(request, args.tags);
+        const fmt = (args.format as string) ?? 'brief';
+        const found = await engine.findMemory(projectId, args.query, {
+          types: args.types,
+          tags: scope.overlapTags,
+          requiredRepoTag: scope.requiredRepoTag,
+          includeLinkedProjects: args.include_linked_projects !== false,
+          limit: args.limit,
+          withBrief: fmt !== 'compact',
+        });
+        return NextResponse.json(found);
       }
       case 'get_project_context': {
         const scope = readScope(request, args.tags);

@@ -1,8 +1,10 @@
 import type { EmbeddingProvider } from '../domain/repositories.js';
+import { EMBEDDING_DIMENSIONS } from './embedding-constants.js';
 
 const HF_MODEL = 'sentence-transformers/all-MiniLM-L6-v2';
 const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}/pipeline/feature-extraction`;
-export const EMBEDDING_DIMENSIONS = 384;
+
+export { EMBEDDING_DIMENSIONS } from './embedding-constants.js';
 
 /** Mean-pool token vectors from HF feature-extraction output */
 function meanPool(vectors: number[][]): number[] {

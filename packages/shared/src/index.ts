@@ -29,6 +29,7 @@ export type {
   RegisteredRepo,
   WorkspaceScope,
   LinkedProjectContext,
+  SessionInsights,
   WorkspaceContextPacket,
 } from './project-links.js';
 
@@ -39,6 +40,24 @@ export {
   type CheatsheetTool,
   type CheatsheetEntry,
 } from './mcp-cheatsheet.js';
+
+export {
+  compactMemoryCard,
+  compactSearchResult,
+  compactScoredMemories,
+  compactWorkspace,
+  compactContextPacket,
+  compactRememberResult,
+  compactAskResult,
+  isCompactFormat,
+  wantsGroqBrief,
+  serializeMcpPayload,
+  type CompactMemoryCard,
+  type CompactSearchResult,
+  type CompactWorkspaceResult,
+  type CompactAskResult,
+  type McpResponseFormat,
+} from './mcp-compact.js';
 
 export type {
   BaseEntity,

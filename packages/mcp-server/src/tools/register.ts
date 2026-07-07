@@ -10,6 +10,7 @@ import {
   RememberComponentSchema,
   RememberRelationshipSchema,
   SearchMemorySchema,
+  FindMemorySchema,
   GetProjectContextSchema,
   GetTaskContextSchema,
   GetFileContextSchema,
@@ -44,9 +45,18 @@ import {
   withOptionalProjectId,
 } from './hosted-args.js';
 import { getCheatsheet, getAgentInstructions } from '@neuron/shared';
+import {
+  formatAskResponse,
+  formatContextResponse,
+  formatRememberResponse,
+  formatWorkspaceResponse,
+  mcpText,
+  resolveMcpFormat,
+} from './response.js';
+import { compactSearchResult } from '@neuron/shared';
 
-function textResult(data: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+function textResult(data: unknown, format?: ReturnType<typeof resolveMcpFormat>) {
+  return mcpText(data, format ?? resolveMcpFormat());
 }
 
 function readFilters(explicitTags?: string[], repoTag?: string) {
@@ -75,7 +85,8 @@ function makeRememberHandler(
       metadata: parsed.metadata,
       layer: ContextLayer.Project,
     });
-    return textResult({ success: true, memory });
+    const fmt = resolveMcpFormat();
+    return textResult(formatRememberResponse(memory, fmt), fmt);
   };
 }
 
@@ -161,7 +172,8 @@ export function registerTools(
         },
         layer: ContextLayer.Project,
       });
-      return textResult({ success: true, memory });
+      const fmt = resolveMcpFormat();
+      return textResult(formatRememberResponse(memory, fmt), fmt);
     },
   );
 
@@ -200,7 +212,8 @@ export function registerTools(
         },
         layer: ContextLayer.Project,
       });
-      return textResult({ success: true, memory });
+      const fmt = resolveMcpFormat();
+      return textResult(formatRememberResponse(memory, fmt), fmt);
     },
   );
 
@@ -232,7 +245,8 @@ export function registerTools(
         },
         layer: ContextLayer.Project,
       });
-      return textResult({ success: true, memory });
+      const fmt = resolveMcpFormat();
+      return textResult(formatRememberResponse(memory, fmt), fmt);
     },
   );
 
@@ -266,7 +280,8 @@ export function registerTools(
         },
         layer: ContextLayer.Project,
       });
-      return textResult({ success: true, memory });
+      const fmt = resolveMcpFormat();
+      return textResult(formatRememberResponse(memory, fmt), fmt);
     },
   );
 
@@ -335,12 +350,26 @@ export function registerTools(
 
   server.tool(
     'search_memory',
-    'Hybrid search across project memories — includes linked projects (host↔package) by default',
+    'Hybrid Groq+vector search — default format=brief returns a tight AI summary + memory cards (saves tokens)',
     toolShape(SearchMemorySchema, hosted),
     async (args) => {
       const schema = withOptionalProjectId(SearchMemorySchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const filters = readFilters(parsed.tags, defaultRepoTag);
+      const fmt = resolveMcpFormat(parsed.format);
+
+      if (fmt === 'brief') {
+        const found = await engine.findMemory(parsed.project_id, parsed.query, {
+          types: parsed.types,
+          tags: filters.tags,
+          requiredRepoTag: filters.requiredRepoTag,
+          includeLinkedProjects: parsed.include_linked_projects ?? true,
+          limit: parsed.limit,
+          withBrief: true,
+        });
+        return textResult(found, fmt);
+      }
+
       const results = await engine.searchMemory(parsed.project_id, parsed.query, {
         types: parsed.types,
         tags: filters.tags,
@@ -348,7 +377,28 @@ export function registerTools(
         includeLinkedProjects: parsed.include_linked_projects ?? true,
         limit: parsed.limit,
       });
-      return textResult(results);
+      return textResult(fmt === 'full' ? results : compactSearchResult(results), fmt);
+    },
+  );
+
+  server.tool(
+    'find_memory',
+    'Best fuzzy finder — Groq rewrite + HyDE + title sweep, returns brief + structured memory cards',
+    toolShape(FindMemorySchema, hosted),
+    async (args) => {
+      const schema = withOptionalProjectId(FindMemorySchema, hosted);
+      const parsed = parseProjectArgs(schema, args, defaultProjectId);
+      const filters = readFilters(parsed.tags, defaultRepoTag);
+      const fmt = resolveMcpFormat(parsed.format);
+      const found = await engine.findMemory(parsed.project_id, parsed.query, {
+        types: parsed.types,
+        tags: filters.tags,
+        requiredRepoTag: filters.requiredRepoTag,
+        includeLinkedProjects: parsed.include_linked_projects ?? true,
+        limit: parsed.limit,
+        withBrief: fmt !== 'compact',
+      });
+      return textResult(found, fmt);
     },
   );
 
@@ -360,6 +410,7 @@ export function registerTools(
       const schema = withOptionalProjectId(GetProjectContextSchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const filters = readFilters(parsed.tags, defaultRepoTag);
+      const fmt = resolveMcpFormat(parsed.format);
       const workspace = await engine.getWorkspaceContext({
         projectId: parsed.project_id,
         query: parsed.query,
@@ -371,23 +422,29 @@ export function registerTools(
         requiredRepoTag: filters.requiredRepoTag,
         includeLinkedProjects: parsed.include_linked_projects ?? true,
       });
-      return textResult({
-        ...workspace.primary,
-        workspace: workspace.scope,
-        linkedProjects: workspace.linked,
-        hints: workspace.hints,
-      });
+      const payload =
+        fmt === 'full'
+          ? {
+              ...workspace.primary,
+              workspace: workspace.scope,
+              linkedProjects: workspace.linked,
+              hints: workspace.hints,
+              sessionInsights: workspace.sessionInsights,
+            }
+          : formatWorkspaceResponse(workspace, fmt);
+      return textResult(payload, fmt);
     },
   );
 
   server.tool(
     'get_workspace_context',
-    'Full workspace map: repos, project links, repo-scoped context, and linked project highlights — best starting point',
+    'Session start — Groq infers your task, preloads relevant memories, surfaces warnings. format=brief (default) saves tokens',
     toolShape(GetWorkspaceContextSchema, hosted),
     async (args) => {
       const schema = withOptionalProjectId(GetWorkspaceContextSchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const filters = readFilters(parsed.tags, defaultRepoTag);
+      const fmt = resolveMcpFormat(parsed.format);
       const workspace = await engine.getWorkspaceContext({
         projectId: parsed.project_id,
         query: parsed.query,
@@ -399,7 +456,7 @@ export function registerTools(
         requiredRepoTag: filters.requiredRepoTag,
         includeLinkedProjects: parsed.include_linked_projects ?? true,
       });
-      return textResult(workspace);
+      return textResult(formatWorkspaceResponse(workspace, fmt), fmt);
     },
   );
 
@@ -411,6 +468,7 @@ export function registerTools(
       const schema = withOptionalProjectId(GetTaskContextSchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const filters = readFilters(parsed.tags, defaultRepoTag);
+      const fmt = resolveMcpFormat(parsed.format);
       const packet = await engine.getProjectContext({
         projectId: parsed.project_id,
         taskDescription: parsed.task_description,
@@ -420,7 +478,7 @@ export function registerTools(
         tags: filters.tags,
         requiredRepoTag: filters.requiredRepoTag,
       });
-      return textResult(packet);
+      return textResult(formatContextResponse(packet, fmt), fmt);
     },
   );
 
@@ -562,7 +620,8 @@ export function registerTools(
       const schema = withOptionalProjectId(AskProjectSchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
       const result = await engine.askProject(parsed.project_id, parsed.question, parsed.limit);
-      return textResult(result);
+      const fmt = resolveMcpFormat(parsed.format);
+      return textResult(formatAskResponse(result, fmt), fmt);
     },
   );
 

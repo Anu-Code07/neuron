@@ -112,6 +112,7 @@ export function createHostedEngine(
         requiredRepoTag?: string;
         includeLinkedProjects?: boolean;
         limit?: number;
+        format?: string;
       },
     ) {
       return call('search_memory', withProject({
@@ -121,6 +122,31 @@ export function createHostedEngine(
         tags: opts?.tags,
         include_linked_projects: opts?.includeLinkedProjects,
         limit: opts?.limit,
+        format: opts?.format,
+      }));
+    },
+
+    async findMemory(
+      pid: string,
+      query: string,
+      opts?: {
+        types?: string[];
+        tags?: string[];
+        requiredRepoTag?: string;
+        includeLinkedProjects?: boolean;
+        limit?: number;
+        withBrief?: boolean;
+        format?: string;
+      },
+    ) {
+      return call('find_memory', withProject({
+        project_id: pid || projectId,
+        query,
+        types: opts?.types,
+        tags: opts?.tags,
+        include_linked_projects: opts?.includeLinkedProjects,
+        limit: opts?.limit,
+        format: opts?.format ?? (opts?.withBrief === false ? 'compact' : 'brief'),
       }));
     },
 
