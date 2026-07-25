@@ -156,14 +156,17 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, memory });
       }
       case 'remember_relationship': {
-        const memory = await engine.remember({
-          projectId,
-          type: 'relationship' as never,
-          title: `${args.type}: ${args.source_memory_id} → ${args.target_memory_id}`,
-          content: `Relationship of type ${args.type}`,
-          relationships: [{ targetMemoryId: args.target_memory_id, type: args.type }],
-        });
-        return NextResponse.json({ success: true, memory });
+        const sourceMemoryId = args.source_memory_id as string | undefined;
+        const targetMemoryId = args.target_memory_id as string | undefined;
+        const relType = args.type as string | undefined;
+        if (!sourceMemoryId || !targetMemoryId || !relType) {
+          return NextResponse.json(
+            { error: 'source_memory_id, target_memory_id, and type are required' },
+            { status: 400 },
+          );
+        }
+        const link = await engine.linkMemories(projectId, sourceMemoryId, targetMemoryId, relType);
+        return NextResponse.json({ success: true, ...link });
       }
       case 'get_task_context': {
         const scope = readScope(request, args.tags);
