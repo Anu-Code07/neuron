@@ -37,6 +37,7 @@ export function useKnowledgeGraph() {
           .select('id, title, type, content, confidence, importance, tags, layer, updated_at')
           .eq('project_id', activeProjectId)
           .eq('status', 'active')
+          .neq('type', 'relationship')
           .order('importance', { ascending: false })
           .limit(80),
         supabase
@@ -76,6 +77,7 @@ export function useMemoriesList() {
         .select('id, title, content, type, confidence, importance, tags, layer, updated_at')
         .eq('project_id', activeProjectId)
         .eq('status', 'active')
+        .neq('type', 'relationship')
         .order('updated_at', { ascending: false })
         .limit(100);
       if (error) throw error;

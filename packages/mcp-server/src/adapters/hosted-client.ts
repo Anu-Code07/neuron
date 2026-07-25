@@ -267,6 +267,21 @@ export function createHostedEngine(
       await call('forget_memory', { memory_id: memoryId, reason });
     },
 
+    async linkMemories(
+      pid: string,
+      sourceMemoryId: string,
+      targetMemoryId: string,
+      type: string,
+    ) {
+      const result = await call('remember_relationship', withProject({
+        project_id: pid || projectId,
+        source_memory_id: sourceMemoryId,
+        target_memory_id: targetMemoryId,
+        type,
+      }));
+      return result as { sourceMemoryId: string; targetMemoryId: string; type: string };
+    },
+
     async merge(sourceId: string, targetId: string, mergeOpts?: { force?: boolean }): Promise<Memory> {
       const result = await call('merge_memory', {
         source_memory_id: sourceId,

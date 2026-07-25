@@ -470,6 +470,39 @@ export class ContextEngine {
     await this.deps.memories.forget({ memoryId, reason });
   }
 
+  /** Link two existing memories in the knowledge graph (no relationship memory row) */
+  async linkMemories(
+    projectId: string,
+    sourceMemoryId: string,
+    targetMemoryId: string,
+    type: string,
+  ): Promise<{ sourceMemoryId: string; targetMemoryId: string; type: string }> {
+    const [source, target] = await Promise.all([
+      this.deps.memories.findById(sourceMemoryId),
+      this.deps.memories.findById(targetMemoryId),
+    ]);
+
+    if (!source) throw new Error(`Source memory not found: ${sourceMemoryId}`);
+    if (!target) throw new Error(`Target memory not found: ${targetMemoryId}`);
+    if (source.projectId !== projectId || target.projectId !== projectId) {
+      throw new Error('Both memories must belong to the same project');
+    }
+    if (sourceMemoryId === targetMemoryId) {
+      throw new Error('Cannot link a memory to itself');
+    }
+
+    try {
+      await this.deps.relationships.create(projectId, sourceMemoryId, targetMemoryId, type);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.includes('duplicate key') && !message.includes('unique constraint')) {
+        throw err;
+      }
+    }
+
+    return { sourceMemoryId, targetMemoryId, type };
+  }
+
   /** Merge two memories — checks duplicates unless force=true */
   async merge(sourceId: string, targetId: string, options?: { force?: boolean }): Promise<Memory> {
     if (!options?.force && this.deps.llm) {

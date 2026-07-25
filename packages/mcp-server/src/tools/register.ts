@@ -313,17 +313,13 @@ export function registerTools(
     async (args) => {
       const schema = withOptionalProjectId(RememberRelationshipSchema, hosted);
       const parsed = parseProjectArgs(schema, args, defaultProjectId);
-      await engine.remember({
-        projectId: parsed.project_id,
-        type: MemoryType.Relationship,
-        title: `${parsed.type}: ${parsed.source_memory_id} → ${parsed.target_memory_id}`,
-        content: `Relationship of type ${parsed.type}`,
-        relationships: [
-          { targetMemoryId: parsed.target_memory_id, type: parsed.type },
-        ],
-        layer: ContextLayer.Project,
-      });
-      return textResult({ success: true });
+      const link = await engine.linkMemories(
+        parsed.project_id,
+        parsed.source_memory_id,
+        parsed.target_memory_id,
+        parsed.type,
+      );
+      return textResult({ success: true, ...link });
     },
   );
 
